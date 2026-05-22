@@ -29,7 +29,13 @@ export default function LandingPage() {
 
   // Connect to live WebSocket events if backend is running
   useEffect(() => {
-    const socket = io("http://localhost:5001");
+    const isProd = process.env.NODE_ENV === "production";
+    const socketUrl = isProd ? window.location.origin : "http://localhost:5001";
+    const socketPath = isProd ? "/scoring/socket.io" : "/socket.io";
+
+    const socket = io(socketUrl, {
+      path: socketPath
+    });
 
     socket.on("connect", () => {
       console.log("Connected to Live WebSocket channel.");

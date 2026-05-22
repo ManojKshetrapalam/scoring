@@ -3,7 +3,11 @@ import { Server } from "socket.io";
 let io = null;
 
 export function initSocket(server) {
+  const socketPath = process.env.NODE_ENV === "production" ? "/scoring/socket.io" : "/socket.io";
+  console.log(`[Socket] Initializing Server with path: ${socketPath}`);
+  
   io = new Server(server, {
+    path: socketPath,
     cors: {
       origin: "*",
       methods: ["GET", "POST"]

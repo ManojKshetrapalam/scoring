@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { Sparkles, RotateCcw, UserPlus, ShieldAlert, Award, Play } from "lucide-react";
 
+const isProd = typeof window !== "undefined" && process.env.NODE_ENV === "production";
+const apiBase = isProd ? "/scoring/api" : "http://localhost:5001/api";
+
 export default function ScorerPanel() {
   const [matchState, setMatchState] = useState({
     team1Name: "Google Giants",
@@ -75,7 +78,7 @@ export default function ScorerPanel() {
 
     // 3. Make HTTP request to actual backend if running
     try {
-      const res = await fetch("http://localhost:5001/api/matches/1/score", {
+      const res = await fetch(`${apiBase}/matches/1/score`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -111,7 +114,7 @@ export default function ScorerPanel() {
 
   const handleUndo = async () => {
     try {
-      const res = await fetch("http://localhost:5001/api/matches/1/undo", {
+      const res = await fetch(`${apiBase}/matches/1/undo`, {
         method: "POST"
       });
       const data = await res.json();
