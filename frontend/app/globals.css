@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 8PX GRID SPACING TOKENS & SYSTEM WIDE CSS VARIABLES */
+:root {
+  /* Spacing Grid System */
+  --space-xs: 0.25rem;   /* 4px */
+  --space-sm: 0.5rem;    /* 8px */
+  --space-md: 1rem;      /* 16px */
+  --space-lg: 1.5rem;    /* 24px */
+  --space-xl: 2rem;      /* 32px */
+  --space-xxl: 3rem;     /* 48px */
+  --space-xxxl: 4rem;    /* 64px */
+
+  /* Default Dark Theme Color Tokens (Corporate Sports UI matches Gevents branding) */
+  --bg-primary: hsl(222, 28%, 7%);
+  --bg-secondary: hsl(222, 28%, 12%);
+  --text-primary: hsl(0, 0%, 98%);
+  --text-secondary: hsl(218, 11%, 70%);
+  --color-accent: hsl(116, 100%, 50%); /* High-fidelity Neon Green */
+  --color-accent-hover: hsl(116, 100%, 42%);
+  --border-color: hsl(222, 28%, 18%);
+}
+
+/* Optional Light Theme Toggle override */
+[data-theme="light"] {
+  --bg-primary: hsl(210, 20%, 98%);
+  --bg-secondary: hsl(0, 0%, 100%);
+  --text-primary: hsl(222, 28%, 12%);
+  --text-secondary: hsl(222, 12%, 40%);
+  --color-accent: hsl(116, 100%, 38%);
+  --color-accent-hover: hsl(116, 100%, 28%);
+  --border-color: hsl(220, 15%, 88%);
+}
+
+/* GLOBAL HTML/BODY STANDARDS */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ACCESSIBLE ANIMATIONS & PREFERS REDUCED MOTION SAFEGUARDS */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-delay: -1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    background-attachment: initial !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+}
+
+/* PREMIUM UTILITIES: GLASSMORPHISM CARDS */
+.glass-panel {
+  background: rgba(12, 19, 43, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.glass-panel-hover:hover {
+  background: rgba(12, 19, 43, 0.6);
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 30px rgba(57, 255, 20, 0.08);
+}
+
+/* DYNAMIC PULSING RADAR (Live Scoring Indicator) */
+.live-radar {
+  position: relative;
+}
+.live-radar::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: inherit;
+  animation: radar-pulse 1.8s infinite ease-out;
+}
+
+@keyframes radar-pulse {
+  0% {
+    width: 100%;
+    height: 100%;
+    opacity: 0.8;
+  }
+  100% {
+    width: 250%;
+    height: 250%;
+    opacity: 0;
+  }
+}
+
+/* KEYBOARD NAVIGATION HIGHLIGHT */
+*:focus-visible {
+  outline: 2px solid var(--color-accent) !important;
+  outline-offset: 4px;
+}
