@@ -10,6 +10,9 @@ import { initSocket } from "./socket.js";
 import authRouter from "./routes/auth.js";
 import tournamentRouter from "./routes/tournaments.js";
 import matchesRouter from "./routes/matches.js";
+import teamsRouter from "./routes/teams.js";
+import friendliesRouter from "./routes/friendlies.js";
+import scorerRouter from "./routes/scorer.js";
 
 // Load environment configurations
 dotenv.config();
@@ -38,6 +41,11 @@ app.use(express.json());
 app.use(["/api/auth", "/scoring/api/auth"], authRouter);
 app.use(["/api/tournaments", "/scoring/api/tournaments"], tournamentRouter);
 app.use(["/api/matches", "/scoring/api/matches"], matchesRouter);
+app.use(["/api/teams", "/scoring/api/teams"], teamsRouter);
+app.use(["/api/friendlies", "/scoring/api/friendlies"], friendliesRouter);
+app.use(["/api/scorer", "/scoring/api/scorer"], scorerRouter);
+
+console.log("[API] Mounted: /api/teams, /api/scorer/workspace, /api/friendlies");
 
 // Health check endpoint
 app.get(["/health", "/scoring/health"], (req, res) => {

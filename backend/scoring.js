@@ -21,10 +21,11 @@ function economy(runs = 0, legalBalls = 0) {
 }
 
 function lineupKeyForTeam(liveData, teamId) {
-  if (liveData.lineups.team1?.teamId === teamId) {
+  const id = Number(teamId);
+  if (Number(liveData.lineups.team1?.teamId) === id) {
     return "team1";
   }
-  if (liveData.lineups.team2?.teamId === teamId) {
+  if (Number(liveData.lineups.team2?.teamId) === id) {
     return "team2";
   }
   return null;
@@ -136,11 +137,12 @@ function buildBallDisplay(event, scoring) {
     return { label: scoring.teamRuns > 1 ? `${scoring.teamRuns}wd` : "wd", variant: "wide" };
   }
 
-  if (scoring.batterRuns === 6) {
+  const boundaryRuns = scoring.batterRuns || scoring.teamRuns;
+  if (boundaryRuns === 6) {
     return { label: "6", variant: "six" };
   }
 
-  if (scoring.batterRuns === 4) {
+  if (boundaryRuns === 4) {
     return { label: "4", variant: "four" };
   }
 
@@ -273,7 +275,31 @@ export function hydrateLiveData(liveData, matchRow) {
     hydrated.current.pendingInningsTransition = null;
   }
 
-  for (const inningsState of Object.values(hydrated.innings || {})) {
+  for (const [inningsKey, inningsState] of Object.entries(hydrated.innings || {})) {
+    if (!inningsState) continue;
+
+    const inningsNum = Number(inningsKey);
+    if (!inningsState.battingTeamId && inningsNum === Number(hydrated.current?.inningsNumber)) {
+      inningsState.battingTeamId = hydrated.current.battingTeamId;
+      inningsState.bowlingTeamId = hydrated.current.bowlingTeamId;
+    }
+
+    if (inningsNum === 2 && hydrated.innings["1"]) {
+      const first = hydrated.innings["1"];
+      if (
+        inningsState.battingTeamId &&
+        first.battingTeamId &&
+        Number(inningsState.battingTeamId) === Number(first.battingTeamId) &&
+        first.bowlingTeamId
+      ) {
+        inningsState.battingTeamId = first.bowlingTeamId;
+        inningsState.bowlingTeamId = first.battingTeamId;
+      } else if (!inningsState.battingTeamId && first.bowlingTeamId) {
+        inningsState.battingTeamId = first.bowlingTeamId;
+        inningsState.bowlingTeamId = first.battingTeamId;
+      }
+    }
+
     if (!inningsState?.bowlers) continue;
     for (const bowler of Object.values(inningsState.bowlers)) {
       if (!bowler.currentOverDeliveries) bowler.currentOverDeliveries = [];
@@ -530,6 +556,269 @@ function resolveNextBatters({ inningsState, battingLineup, dismissedPlayerId, en
   return { strikerId: endStrikerId, nonStrikerId: incomingBatterId, incomingBatterId };
 }
 
+function formatMomOvers(legalBalls = 0) {
+  const overs = Math.floor(legalBalls / 6);
+  const balls = legalBalls % 6;
+  return balls ? `${overs}.${balls}` : `${overs}`;
+}
+
+function aggregateMatchPlayerStats(liveData) {
+  const byId = new Map();
+
+  for (const innings of Object.values(liveData.innings || {})) {
+    const battingTeamId = Number(innings.battingTeamId);
+    const bowlingTeamId = Number(innings.bowlingTeamId);
+
+    for (const batter of Object.values(innings.batsmen || {})) {
+      if (batter.status === "yet_to_bat" && !batter.runs && !batter.balls) continue;
+      const id = Number(batter.playerId);
+      const row = byId.get(id) || {
+        playerId: id,
+        name: batter.name,
+        teamId: battingTeamId,
+        runs: 0,
+        balls: 0,
+        fours: 0,
+        sixes: 0,
+        notOut: false,
+        dismissed: false,
+        wickets: 0,
+        runsConceded: 0,
+        legalBalls: 0,
+      };
+      row.runs += batter.runs || 0;
+      row.balls += batter.balls || 0;
+      row.fours += batter.fours || 0;
+      row.sixes += batter.sixes || 0;
+      if (batter.status === "out" || batter.status === "retired_out") {
+        row.dismissed = true;
+      }
+      if (batter.status === "batting" || batter.status === "not out") {
+        row.notOut = true;
+      }
+      if (!row.name) row.name = batter.name;
+      byId.set(id, row);
+    }
+
+    for (const bowler of Object.values(innings.bowlers || {})) {
+      if (!bowler.legalBalls && !bowler.wickets && !bowler.runs) continue;
+      const id = Number(bowler.playerId);
+      const row = byId.get(id) || {
+        playerId: id,
+        name: bowler.name,
+        teamId: bowlingTeamId,
+        runs: 0,
+        balls: 0,
+        fours: 0,
+        sixes: 0,
+        notOut: false,
+        dismissed: false,
+        wickets: 0,
+        runsConceded: 0,
+        legalBalls: 0,
+      };
+      row.wickets += bowler.wickets || 0;
+      row.runsConceded += bowler.runs || 0;
+      row.legalBalls += bowler.legalBalls || 0;
+      if (!row.name) row.name = bowler.name;
+      byId.set(id, row);
+    }
+  }
+
+  return [...byId.values()]
+    .map((row) => {
+      if (row.dismissed) row.notOut = false;
+      return row;
+    })
+    .filter((row) => row.runs > 0 || row.balls > 0 || row.wickets > 0 || row.legalBalls > 0);
+}
+
+function battingImpactPoints(player, { chaseWinner, isChaseInnings }) {
+  const { runs = 0, balls = 0, notOut } = player;
+  if (!balls && !runs) return 0;
+
+  const sr = strikeRate(runs, balls);
+  let points = runs;
+
+  if (runs >= 30) points += 6;
+  if (runs >= 50) points += 14;
+  if (runs >= 75) points += 10;
+  if (runs >= 100) points += 20;
+
+  if (balls >= 6) {
+    if (sr >= 150) points += 12;
+    else if (sr >= 130) points += 8;
+    else if (sr >= 110) points += 4;
+    else if (sr < 70 && balls >= 12) points -= 4;
+  }
+
+  if (chaseWinner && isChaseInnings && notOut && runs >= 15) {
+    points += 10;
+  }
+  if (notOut && runs >= 20) points += 5;
+
+  return points;
+}
+
+function bowlingImpactPoints(player) {
+  const { wickets = 0, legalBalls = 0, runsConceded = 0 } = player;
+  if (!wickets && !legalBalls) return 0;
+
+  let points = wickets * 22;
+
+  if (wickets >= 2) points += 6;
+  if (wickets >= 3) points += 14;
+  if (wickets >= 4) points += 10;
+  if (wickets >= 5) points += 18;
+
+  if (legalBalls >= 6) {
+    const econ = economy(runsConceded, legalBalls);
+    if (econ <= 5) points += 16;
+    else if (econ <= 6.5) points += 12;
+    else if (econ <= 8) points += 6;
+    else if (econ >= 11) points -= Math.min(10, Math.floor(econ - 10) * 3);
+  }
+
+  return points;
+}
+
+function buildMomProfile(player, reason) {
+  const profile = {
+    playerId: player.playerId,
+    name: player.name,
+    teamId: player.teamId,
+    runs: player.runs || 0,
+    balls: player.balls || 0,
+    fours: player.fours || 0,
+    sixes: player.sixes || 0,
+    notOut: Boolean(player.notOut),
+    wickets: player.wickets || 0,
+    runsConceded: player.runsConceded || 0,
+    legalBalls: player.legalBalls || 0,
+    reason,
+  };
+
+  const lines = [];
+  if (profile.balls > 0 || profile.runs > 0) {
+    profile.battingLine = `${profile.runs}${profile.notOut ? "*" : ""} (${profile.balls})`;
+    lines.push(profile.battingLine);
+  }
+  if (profile.wickets > 0 || profile.legalBalls > 0) {
+    profile.overs = formatMomOvers(profile.legalBalls);
+    profile.economy = economy(profile.runsConceded, profile.legalBalls);
+    profile.bowlingLine = `${profile.wickets}/${profile.runsConceded} (${profile.overs} ov)`;
+    lines.push(profile.bowlingLine);
+  }
+
+  if (profile.runs > 0 && profile.wickets > 0) {
+    profile.role = "all-rounder";
+  } else if (profile.wickets > 0 && profile.runs <= profile.wickets * 8) {
+    profile.role = "bowler";
+  } else {
+    profile.role = "batter";
+  }
+
+  profile.performance = lines.join(" · ");
+  return profile;
+}
+
+/**
+ * Player of the Match (limited-overs standard):
+ * - Chase won by wickets: leading not-out / top-order chase for the winner.
+ * - Win defending a total: wicket-taking spell (3+ wkts) or economy, else innings-defining batter.
+ * - Otherwise: highest combined batting + bowling impact, from the winning side when possible.
+ */
+export function computeManOfTheMatch(liveData, result) {
+  const played = aggregateMatchPlayerStats(liveData);
+  if (!played.length) return null;
+
+  const winnerId = result?.winnerTeamId != null ? Number(result.winnerTeamId) : null;
+  const innings2 = liveData.innings?.["2"];
+  const wonByWickets = /won by (\d+) wicket/i.test(result?.summary || "");
+  const chaseWinner =
+    wonByWickets && innings2 && winnerId != null && Number(innings2.battingTeamId) === winnerId;
+
+  const scorePlayer = (player) => {
+    const isChaseInnings =
+      chaseWinner &&
+      player.teamId === winnerId &&
+      innings2?.batsmen &&
+      Object.values(innings2.batsmen).some((b) => Number(b.playerId) === Number(player.playerId));
+
+    const bat = battingImpactPoints(player, { chaseWinner, isChaseInnings });
+    const bowl = bowlingImpactPoints(player);
+    let total = bat + bowl;
+
+    if (winnerId != null && player.teamId === winnerId) {
+      total *= 1.08;
+    }
+
+    return { player, total, bat, bowl };
+  };
+
+  const ranked = played.map(scorePlayer).sort((a, b) => b.total - a.total || b.bat - a.bat);
+
+  let pick = null;
+  let reason = "match_impact";
+
+  if (chaseWinner && winnerId != null) {
+    const chaseBatters = played
+      .filter((p) => {
+        if (p.teamId !== winnerId || !p.runs) return false;
+        return Object.values(innings2.batsmen || {}).some(
+          (b) => Number(b.playerId) === Number(p.playerId),
+        );
+      })
+      .sort((a, b) => {
+        if (a.notOut !== b.notOut) return a.notOut ? -1 : 1;
+        return b.runs - a.runs || a.balls - b.balls;
+      });
+
+    if (chaseBatters[0]) {
+      pick = chaseBatters[0];
+      reason = pick.notOut ? "chase_not_out" : "chase_top_scorer";
+    }
+  }
+
+  if (!pick && winnerId != null && !wonByWickets) {
+    const winningBowlers = played
+      .filter((p) => p.teamId === winnerId && p.wickets >= 2)
+      .sort((a, b) => b.wickets - a.wickets || a.runsConceded - b.runsConceded);
+
+    if (winningBowlers[0]?.wickets >= 3) {
+      pick = winningBowlers[0];
+      reason = "defining_spell";
+    } else if (winningBowlers[0]?.wickets >= 2) {
+      const topBowler = winningBowlers[0];
+      const topImpact = ranked.find((r) => r.player.playerId === topBowler.playerId);
+      const bestBatter = played
+        .filter((p) => p.teamId === winnerId && p.runs >= 40)
+        .sort((a, b) => b.runs - a.runs)[0];
+
+      if (!bestBatter || (topImpact?.bowl || 0) >= battingImpactPoints(bestBatter, {}) * 0.85) {
+        pick = topBowler;
+        reason = "best_bowling";
+      }
+    }
+  }
+
+  if (!pick) {
+    const pool =
+      winnerId != null ? ranked.filter((r) => r.player.teamId === winnerId) : ranked;
+    pick = (pool[0] || ranked[0])?.player || null;
+    reason = winnerId != null ? "winning_impact" : "match_impact";
+  }
+
+  return pick ? buildMomProfile(pick, reason) : null;
+}
+
+export function ensureManOfTheMatch(liveData, result) {
+  if (!result) return null;
+  const mom = computeManOfTheMatch(liveData, result);
+  if (!mom) return result;
+  return { ...result, manOfTheMatch: mom };
+}
+
 function computeResult(liveData, battingLineup, bowlingLineup) {
   const innings1 = liveData.innings["1"];
   const innings2 = liveData.innings["2"];
@@ -602,8 +891,8 @@ export function confirmNextBowler(liveData, nextBowlerId) {
   const next = clone(liveData);
   const current = next.current;
 
-  if (!current.requiresNewBowler) {
-    throw new Error("No pending bowler selection for this over.");
+  if (current.phase !== "live") {
+    throw new Error("Match is not live.");
   }
 
   const inningsState = next.innings[String(current.inningsNumber || 1)];
@@ -618,11 +907,13 @@ export function confirmNextBowler(liveData, nextBowlerId) {
     throw new Error("Selected bowler must belong to the bowling lineup.");
   }
 
+  const startingNewOver = Boolean(current.requiresNewBowler);
+
   current.bowlerId = bowlerId;
   current.requiresNewBowler = false;
 
   const newBowlerCard = inningsState.bowlers[String(bowlerId)];
-  if (newBowlerCard) {
+  if (newBowlerCard && startingNewOver) {
     newBowlerCard.currentOverDeliveries = [];
   }
 
@@ -652,8 +943,12 @@ export function finalizeMatch(liveData) {
   const battingLineup = lineupForTeam(next, innings2?.battingTeamId);
   const bowlingLineup = lineupForTeam(next, innings2?.bowlingTeamId);
   const result = computeResult(next, battingLineup, bowlingLineup);
+  const manOfTheMatch = computeManOfTheMatch(next, result);
 
-  next.result = result;
+  next.result = {
+    ...result,
+    manOfTheMatch,
+  };
   next.current.phase = "completed";
   next.current.pendingInningsTransition = null;
   next.current.winnerTeamId = result?.winnerTeamId || null;
@@ -694,10 +989,6 @@ export function applyScoreEvent(liveData, event) {
 
   if (event.wicketType === "caught" && !event.fielderId) {
     throw new Error("Select the fielder who took the catch.");
-  }
-
-  if (event.bowlerId) {
-    current.bowlerId = Number(event.bowlerId);
   }
 
   const strikerId = Number(current.strikerId);

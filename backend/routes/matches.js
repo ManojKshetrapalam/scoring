@@ -8,6 +8,7 @@ import {
   confirmNextBatter,
   confirmNextBowler,
   finalizeMatch,
+  ensureManOfTheMatch,
   hydrateLiveData,
   startInnings,
 } from "../scoring.js";
@@ -30,11 +31,19 @@ async function getFixtureBundle(fixtureId) {
     `
       SELECT
         f.*,
-        tournament.rules AS tournament_rules,
+        COALESCE(tournament.rules, jsonb_build_object(
+          'overs', COALESCE(f.overs_limit, 20),
+          'players_per_team', 11,
+          'powerplay_overs', 0,
+          'free_hit', true,
+          'wide_value', 1,
+          'noball_value', 1
+        )) AS tournament_rules,
         team1.name AS team1_name,
-        team2.name AS team2_name
+        team2.name AS team2_name,
+        tournament.name AS tournament_name
       FROM fixtures f
-      INNER JOIN tournaments tournament ON tournament.id = f.tournament_id
+      LEFT JOIN tournaments tournament ON tournament.id = f.tournament_id
       LEFT JOIN teams team1 ON team1.id = f.team1_id
       LEFT JOIN teams team2 ON team2.id = f.team2_id
       WHERE f.id = $1
@@ -93,16 +102,99 @@ function activeCards(liveData) {
   };
 }
 
+function resolveTeamDisplayName(liveData, fixture, teamId) {
+  if (teamId == null) return "Team";
+  if (fixture?.team1_id != null && Number(fixture.team1_id) === Number(teamId)) {
+    return fixture.team1_name || "Team 1";
+  }
+  if (fixture?.team2_id != null && Number(fixture.team2_id) === Number(teamId)) {
+    return fixture.team2_name || "Team 2";
+  }
+  if (Number(liveData?.lineups?.team1?.teamId) === Number(teamId)) {
+    return fixture?.team1_name || "Team 1";
+  }
+  if (Number(liveData?.lineups?.team2?.teamId) === Number(teamId)) {
+    return fixture?.team2_name || "Team 2";
+  }
+  return `Team ${teamId}`;
+}
+
+function enrichMatchResult(result, liveData, fixture) {
+  if (!result?.summary) return result;
+
+  const winnerId = result.winnerTeamId;
+  if (winnerId == null) return result;
+
+  const winnerName = resolveTeamDisplayName(liveData, fixture, winnerId);
+  const idStr = String(winnerId);
+  let summary = result.summary;
+
+  if (summary.includes(idStr)) {
+    summary = summary.replace(idStr, winnerName);
+  } else {
+    const wicketsMatch = summary.match(/won by (\d+) wicket/i);
+    if (wicketsMatch) {
+      const n = Number(wicketsMatch[1]);
+      summary = `${winnerName} won by ${n} wicket${n === 1 ? "" : "s"}`;
+    } else {
+      const runsMatch = summary.match(/won by (\d+) run/i);
+      if (runsMatch) {
+        const n = Number(runsMatch[1]);
+        summary = `${winnerName} won by ${n} run${n === 1 ? "" : "s"}`;
+      } else if (!/tied/i.test(summary)) {
+        summary = `${winnerName} won`;
+      }
+    }
+  }
+
+  const enriched = { ...result, summary, winnerTeamName: winnerName };
+  if (result.manOfTheMatch?.name) {
+    enriched.manOfTheMatch = result.manOfTheMatch;
+  }
+  return enriched;
+}
+
+function buildPastMatchSummary(matchRow, fixture) {
+  const full = buildMatchResponse(matchRow, fixture);
+  const result = full.result || null;
+
+  return {
+    fixtureId: matchRow.fixture_id,
+    matchDate: fixture?.match_date || null,
+    ground: full.ground,
+    team1Name: full.team1Name,
+    team2Name: full.team2Name,
+    team1Id: fixture?.team1_id ?? null,
+    team2Id: fixture?.team2_id ?? null,
+    tournamentId: fixture?.tournament_id ?? null,
+    tournamentName: fixture?.tournament_name || null,
+    matchKind: fixture?.match_kind || (fixture?.tournament_id ? "tournament" : "friendly"),
+    status: matchRow.status,
+    result,
+    resultSummary: result?.summary || null,
+  };
+}
+
 function buildMatchResponse(matchRow, fixture) {
   const liveData = hydrateLiveData(matchRow.live_data, matchRow);
   const innings1 = buildPublicInningsState(liveData, 1);
   const innings2 = buildPublicInningsState(liveData, 2);
   const { inningsState, strikerCard, nonStrikerCard, bowlerCard, availableNextBatters, availableBowlers } = activeCards(liveData);
+  const team1Name = fixture?.team1_name || "Team 1";
+  const team2Name = fixture?.team2_name || "Team 2";
+  const isComplete =
+    matchRow.status === "completed" || liveData?.current?.phase === "completed";
+  let result = enrichMatchResult(liveData.result, liveData, fixture);
+  if (isComplete && result) {
+    result = enrichMatchResult(ensureManOfTheMatch(liveData, result), liveData, fixture);
+  }
 
   return {
     ...matchRow,
-    team1Name: fixture?.team1_name || "Team 1",
-    team2Name: fixture?.team2_name || "Team 2",
+    team1Name,
+    team2Name,
+    team1Id: fixture?.team1_id ?? null,
+    team2Id: fixture?.team2_id ?? null,
     ground: fixture?.ground || "Ground TBD",
     liveData,
     innings1,
@@ -118,7 +210,7 @@ function buildMatchResponse(matchRow, fixture) {
     availableBowlers,
     targetRuns: liveData.current.targetRuns,
     toss: liveData.toss,
-    result: liveData.result,
+    result,
     requiresNewBowler: Boolean(liveData.current?.requiresNewBowler),
     requiresNewBatter: Boolean(liveData.current?.requiresNewBatter),
     pendingInningsTransition: liveData.current?.pendingInningsTransition || null,
@@ -246,6 +338,61 @@ async function executeScoreUpdate(fixtureId, input) {
     commentary: payload.commentary,
   };
 }
+
+router.get("/past", async (req, res) => {
+  try {
+    const tournamentId = req.query.tournamentId
+      ? parseInt(req.query.tournamentId, 10)
+      : null;
+
+    const rows = await query(
+      `
+        SELECT
+          ms.*,
+          f.match_date,
+          f.ground,
+          f.tournament_id,
+          f.match_kind,
+          tournament.name AS tournament_name,
+          team1.name AS team1_name,
+          team2.name AS team2_name
+        FROM match_state ms
+        INNER JOIN fixtures f ON f.id = ms.fixture_id
+        LEFT JOIN tournaments tournament ON tournament.id = f.tournament_id
+        LEFT JOIN teams team1 ON team1.id = f.team1_id
+        LEFT JOIN teams team2 ON team2.id = f.team2_id
+        WHERE (
+          ms.status = 'completed'
+          OR COALESCE(ms.live_data->'current'->>'phase', '') = 'completed'
+          OR ms.live_data->'result' IS NOT NULL
+        )
+        AND ($1::int IS NULL OR f.tournament_id = $1)
+        ORDER BY f.match_date DESC NULLS LAST, ms.fixture_id DESC
+      `,
+      [Number.isFinite(tournamentId) ? tournamentId : null],
+    );
+
+    const data = rows.map((row) =>
+      buildPastMatchSummary(row, {
+        id: row.fixture_id,
+        team1_id: row.team1_id,
+        team2_id: row.team2_id,
+        match_date: row.match_date,
+        ground: row.ground,
+        tournament_id: row.tournament_id,
+        match_kind: row.match_kind,
+        tournament_name: row.tournament_name,
+        team1_name: row.team1_name,
+        team2_name: row.team2_name,
+      }),
+    );
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error("[Matches] Failed to fetch past matches:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch past matches." });
+  }
+});
 
 router.get("/live", async (req, res) => {
   try {

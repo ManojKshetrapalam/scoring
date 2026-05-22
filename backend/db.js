@@ -92,4 +92,44 @@ export async function runMigrations() {
     ALTER TABLE ball_commentary
     ADD COLUMN IF NOT EXISTS state_after JSONB;
   `);
+
+  await pool.query(`
+    ALTER TABLE teams
+    ALTER COLUMN tournament_id DROP NOT NULL;
+  `);
+
+  await pool.query(`
+    ALTER TABLE fixtures
+    ALTER COLUMN tournament_id DROP NOT NULL;
+  `);
+
+  await pool.query(`
+    ALTER TABLE fixtures
+    ADD COLUMN IF NOT EXISTS match_kind VARCHAR(20) DEFAULT 'tournament' NOT NULL;
+  `);
+
+  await pool.query(`
+    ALTER TABLE fixtures
+    ADD COLUMN IF NOT EXISTS title VARCHAR(255);
+  `);
+
+  await pool.query(`
+    ALTER TABLE fixtures
+    ADD COLUMN IF NOT EXISTS overs_limit INT DEFAULT 20;
+  `);
+
+  await pool.query(`
+    DO $$
+    BEGIN
+      ALTER TABLE teams DROP CONSTRAINT IF EXISTS unique_tournament_team;
+    EXCEPTION
+      WHEN undefined_object THEN NULL;
+    END $$;
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS unique_tournament_team_name
+    ON teams (tournament_id, name)
+    WHERE tournament_id IS NOT NULL;
+  `);
 }

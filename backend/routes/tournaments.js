@@ -2,6 +2,7 @@ import express from "express";
 import { normalizeRole, query, queryOne, withTransaction } from "../db.js";
 import { authenticateToken, requireRole } from "./auth.js";
 import { createInitialLiveData, createLineupPayload } from "../scoring.js";
+import { sanitizePlayers } from "./tournamentHelpers.js";
 
 const router = express.Router();
 
@@ -21,56 +22,6 @@ function parseRules(payload = {}) {
     wide_value: Number(payload.wideValue || payload.wide_value || 1),
     noball_value: Number(payload.noBallValue || payload.noball_value || 1),
   };
-}
-
-function sanitizePlayers(players = []) {
-  if (!Array.isArray(players) || players.length === 0) {
-    throw new Error("Each team must include at least one player.");
-  }
-
-  let captainAssigned = false;
-  let wicketKeeperAssigned = false;
-
-  return players.map((player, index) => {
-    const normalized = {
-      id: player.id ? Number(player.id) : null,
-      name: String(player.name || "").trim(),
-      jerseyNumber: player.jerseyNumber ?? player.jersey_number ?? null,
-      battingStyle: player.battingStyle || player.batting_style || null,
-      bowlingStyle: player.bowlingStyle || player.bowling_style || null,
-      isCaptain: Boolean(player.isCaptain || player.is_captain),
-      isViceCaptain: Boolean(player.isViceCaptain || player.is_vice_captain),
-      isWicketKeeper: Boolean(player.isWicketKeeper || player.is_wicket_keeper),
-    };
-
-    if (!normalized.name) {
-      throw new Error(`Player ${index + 1} is missing a name.`);
-    }
-
-    if (normalized.isCaptain && !captainAssigned) {
-      captainAssigned = true;
-    } else if (normalized.isCaptain) {
-      normalized.isCaptain = false;
-    }
-
-    if (normalized.isWicketKeeper && !wicketKeeperAssigned) {
-      wicketKeeperAssigned = true;
-    } else if (normalized.isWicketKeeper) {
-      normalized.isWicketKeeper = false;
-    }
-
-    return normalized;
-  }).map((player, index, list) => {
-    if (!captainAssigned && index === 0) {
-      player.isCaptain = true;
-      captainAssigned = true;
-    }
-    if (!wicketKeeperAssigned && index === 0) {
-      player.isWicketKeeper = true;
-      wicketKeeperAssigned = true;
-    }
-    return player;
-  });
 }
 
 async function upsertTeamWithPlayers(client, tournamentId, teamPayload, defaultPlayersPerTeam) {
@@ -221,6 +172,114 @@ function ballsToOvers(legalBalls) {
   return legalBalls / 6;
 }
 
+function formatOversValue(legalBalls = 0) {
+  return `${Math.floor(legalBalls / 6)}.${legalBalls % 6}`;
+}
+
+function aggregateTournamentPlayerStats(matchStates) {
+  const battingLeaders = new Map();
+  const bowlingLeaders = new Map();
+
+  for (const row of matchStates) {
+    const liveData = row.live_data || {};
+    const inningsCollection = Object.values(liveData.innings || {});
+
+    for (const inningsState of inningsCollection) {
+      if (!inningsState?.battingTeamId || !inningsState?.bowlingTeamId) continue;
+
+      for (const batter of Object.values(inningsState.batsmen || {})) {
+        const playerId = Number(batter.playerId);
+        const existing = battingLeaders.get(playerId) || {
+          playerId,
+          name: batter.name,
+          teamId: Number(inningsState.battingTeamId),
+          runs: 0,
+          balls: 0,
+          fours: 0,
+          sixes: 0,
+          innings: 0,
+        };
+
+        existing.runs += batter.runs || 0;
+        existing.balls += batter.balls || 0;
+        existing.fours += batter.fours || 0;
+        existing.sixes += batter.sixes || 0;
+        if ((batter.balls || 0) > 0 || (batter.runs || 0) > 0 || batter.status === "out") {
+          existing.innings += 1;
+        }
+        battingLeaders.set(playerId, existing);
+      }
+
+      for (const bowler of Object.values(inningsState.bowlers || {})) {
+        const playerId = Number(bowler.playerId);
+        const existing = bowlingLeaders.get(playerId) || {
+          playerId,
+          name: bowler.name,
+          teamId: Number(inningsState.bowlingTeamId),
+          wickets: 0,
+          runs: 0,
+          legalBalls: 0,
+          innings: 0,
+        };
+
+        existing.wickets += bowler.wickets || 0;
+        existing.runs += bowler.runs || 0;
+        existing.legalBalls += bowler.legalBalls || 0;
+        if ((bowler.legalBalls || 0) > 0 || (bowler.runs || 0) > 0 || (bowler.wickets || 0) > 0) {
+          existing.innings += 1;
+        }
+        bowlingLeaders.set(playerId, existing);
+      }
+    }
+  }
+
+  return { battingLeaders, bowlingLeaders };
+}
+
+function battingStatsPayload(entry) {
+  if (!entry) {
+    return { runs: 0, balls: 0, fours: 0, sixes: 0, strikeRate: 0, innings: 0 };
+  }
+  return {
+    runs: entry.runs,
+    balls: entry.balls,
+    fours: entry.fours,
+    sixes: entry.sixes,
+    innings: entry.innings,
+    strikeRate: entry.balls ? Number(((entry.runs / entry.balls) * 100).toFixed(2)) : 0,
+  };
+}
+
+function bowlingStatsPayload(entry) {
+  if (!entry) {
+    return { wickets: 0, runs: 0, legalBalls: 0, overs: "0.0", economy: 0, innings: 0 };
+  }
+  return {
+    wickets: entry.wickets,
+    runs: entry.runs,
+    legalBalls: entry.legalBalls,
+    overs: formatOversValue(entry.legalBalls),
+    economy: entry.legalBalls ? Number(((entry.runs * 6) / entry.legalBalls).toFixed(2)) : 0,
+    innings: entry.innings,
+  };
+}
+
+function attachPlayerTournamentStats(players, teamId, battingLeaders, bowlingLeaders) {
+  return players.map((player) => {
+    const id = Number(player.id);
+    const bat = battingLeaders.get(id);
+    const bowl = bowlingLeaders.get(id);
+    const playedBatting = bat && bat.teamId === teamId && bat.innings > 0;
+    const playedBowling = bowl && bowl.teamId === teamId && bowl.innings > 0;
+
+    return {
+      ...player,
+      battingStats: battingStatsPayload(playedBatting ? bat : null),
+      bowlingStats: bowlingStatsPayload(playedBowling ? bowl : null),
+    };
+  });
+}
+
 function buildStandingsFromMatches(teams, matchStates) {
   const table = new Map();
   const teamNameMap = new Map(teams.map((team) => [team.id, team.name]));
@@ -241,8 +300,7 @@ function buildStandingsFromMatches(teams, matchStates) {
     });
   });
 
-  const battingLeaders = new Map();
-  const bowlingLeaders = new Map();
+  const { battingLeaders, bowlingLeaders } = aggregateTournamentPlayerStats(matchStates);
 
   for (const row of matchStates) {
     const liveData = row.live_data || {};
@@ -262,48 +320,6 @@ function buildStandingsFromMatches(teams, matchStates) {
       if (bowlingRow) {
         bowlingRow.runsAgainst += inningsState.runs || 0;
         bowlingRow.ballsBowled += inningsState.legalBalls || 0;
-      }
-
-      for (const batter of Object.values(inningsState.batsmen || {})) {
-        const existing = battingLeaders.get(batter.playerId) || {
-          playerId: batter.playerId,
-          name: batter.name,
-          teamId: inningsState.battingTeamId,
-          runs: 0,
-          balls: 0,
-          fours: 0,
-          sixes: 0,
-          matches: 0,
-        };
-
-        existing.runs += batter.runs || 0;
-        existing.balls += batter.balls || 0;
-        existing.fours += batter.fours || 0;
-        existing.sixes += batter.sixes || 0;
-        if ((batter.balls || 0) > 0 || (batter.runs || 0) > 0 || batter.status === "out") {
-          existing.matches += 1;
-        }
-        battingLeaders.set(batter.playerId, existing);
-      }
-
-      for (const bowler of Object.values(inningsState.bowlers || {})) {
-        const existing = bowlingLeaders.get(bowler.playerId) || {
-          playerId: bowler.playerId,
-          name: bowler.name,
-          teamId: inningsState.bowlingTeamId,
-          wickets: 0,
-          runs: 0,
-          legalBalls: 0,
-          matches: 0,
-        };
-
-        existing.wickets += bowler.wickets || 0;
-        existing.runs += bowler.runs || 0;
-        existing.legalBalls += bowler.legalBalls || 0;
-        if ((bowler.legalBalls || 0) > 0 || (bowler.runs || 0) > 0 || (bowler.wickets || 0) > 0) {
-          existing.matches += 1;
-        }
-        bowlingLeaders.set(bowler.playerId, existing);
       }
     }
 
@@ -360,7 +376,7 @@ function buildStandingsFromMatches(teams, matchStates) {
         ...item,
         team: teamNameMap.get(item.teamId) || `Team ${item.teamId}`,
         strikeRate: item.balls ? Number(((item.runs / item.balls) * 100).toFixed(2)) : 0,
-        match: item.matches,
+        match: item.innings,
       })),
     purpleCap: [...bowlingLeaders.values()]
       .sort((left, right) => right.wickets - left.wickets || left.runs - right.runs)
@@ -369,7 +385,7 @@ function buildStandingsFromMatches(teams, matchStates) {
         ...item,
         team: teamNameMap.get(item.teamId) || `Team ${item.teamId}`,
         economy: item.legalBalls ? Number(((item.runs * 6) / item.legalBalls).toFixed(2)) : 0,
-        match: item.matches,
+        match: item.innings,
       })),
   };
 }
@@ -439,6 +455,81 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+router.put("/:id", authenticateToken, requireRole("scorer", "super_admin"), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { name, type, prizeMoney, startDate, endDate, status } = req.body;
+
+    const updated = await queryOne(
+      `
+        UPDATE tournaments
+        SET
+          name = COALESCE($2, name),
+          type = COALESCE($3::tournament_type, type),
+          rules = COALESCE($4::jsonb, rules),
+          prize_money = COALESCE($5, prize_money),
+          venue_details = COALESCE($6::jsonb, venue_details),
+          status = COALESCE($7::tournament_status, status),
+          start_date = COALESCE($8, start_date),
+          end_date = COALESCE($9, end_date)
+        WHERE id = $1
+        RETURNING *
+      `,
+      [
+        id,
+        name || null,
+        type || null,
+        req.body.rules ? JSON.stringify(parseRules(req.body)) : null,
+        prizeMoney != null ? Number(prizeMoney) : null,
+        req.body.groundName || req.body.address
+          ? JSON.stringify(parseVenueDetails(req.body))
+          : null,
+        status || null,
+        startDate || null,
+        endDate || null,
+      ],
+    );
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Tournament not found" });
+    }
+
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error("[Tournaments] Failed to update tournament:", err);
+    return res.status(500).json({ success: false, message: "Failed to update tournament." });
+  }
+});
+
+router.delete("/:id", authenticateToken, requireRole("scorer", "super_admin"), async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const liveCount = await queryOne(
+      `
+        SELECT COUNT(*)::int AS count
+        FROM match_state ms
+        INNER JOIN fixtures f ON f.id = ms.fixture_id
+        WHERE f.tournament_id = $1 AND ms.status = 'live'
+      `,
+      [id],
+    );
+
+    if (liveCount?.count > 0) {
+      return res.status(400).json({ success: false, message: "Cannot delete a tournament with a live match." });
+    }
+
+    const deleted = await queryOne("DELETE FROM tournaments WHERE id = $1 RETURNING id", [id]);
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: "Tournament not found" });
+    }
+
+    return res.json({ success: true, message: "Tournament deleted." });
+  } catch (err) {
+    console.error("[Tournaments] Failed to delete tournament:", err);
+    return res.status(500).json({ success: false, message: "Failed to delete tournament." });
+  }
+});
+
 router.get("/:id/teams", async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
@@ -459,6 +550,79 @@ router.get("/:id/teams", async (req, res) => {
   } catch (err) {
     console.error("[Tournaments] Failed to fetch teams:", err);
     return res.status(500).json({ success: false, message: "Failed to fetch teams." });
+  }
+});
+
+router.get("/:id/teams/:teamId", async (req, res) => {
+  try {
+    const tournamentId = parseInt(req.params.id, 10);
+    const teamId = parseInt(req.params.teamId, 10);
+
+    const team = await queryOne(
+      `
+        SELECT t.*
+        FROM teams t
+        WHERE t.id = $1 AND t.tournament_id = $2
+      `,
+      [teamId, tournamentId],
+    );
+
+    if (!team) {
+      return res.status(404).json({ success: false, message: "Team not found in this tournament." });
+    }
+
+    const players = await query(
+      `
+        SELECT
+          id,
+          name,
+          photo_url,
+          jersey_number,
+          batting_style,
+          bowling_style,
+          is_captain,
+          is_vice_captain,
+          is_wicket_keeper
+        FROM players
+        WHERE team_id = $1
+        ORDER BY
+          is_captain DESC,
+          is_wicket_keeper DESC,
+          jersey_number ASC NULLS LAST,
+          name ASC
+      `,
+      [teamId],
+    );
+
+    const matchStates = await query(
+      `
+        SELECT ms.*
+        FROM match_state ms
+        INNER JOIN fixtures f ON f.id = ms.fixture_id
+        WHERE f.tournament_id = $1
+      `,
+      [tournamentId],
+    );
+
+    const { battingLeaders, bowlingLeaders } = aggregateTournamentPlayerStats(matchStates);
+    const playersWithStats = attachPlayerTournamentStats(
+      players,
+      teamId,
+      battingLeaders,
+      bowlingLeaders,
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        ...team,
+        players: playersWithStats,
+        player_count: players.length,
+      },
+    });
+  } catch (err) {
+    console.error("[Tournaments] Failed to fetch team detail:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch team details." });
   }
 });
 
