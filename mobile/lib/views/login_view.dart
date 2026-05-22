@@ -14,7 +14,7 @@ class LoginView extends StatefulWidget {
 class _LoginViewState extends State<LoginView> {
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
-  
+
   bool _otpSent = false;
   bool _isLoading = false;
   String? _errorMessage;
@@ -50,7 +50,8 @@ class _LoginViewState extends State<LoginView> {
     final otp = _otpController.text.trim();
 
     if (otp.isEmpty || otp.length < 4) {
-      setState(() => _errorMessage = "Please enter the 4-digit code sent to you");
+      setState(
+          () => _errorMessage = "Please enter the 4-digit code sent to you");
       return;
     }
 
@@ -72,7 +73,8 @@ class _LoginViewState extends State<LoginView> {
         );
       }
     } else {
-      setState(() => _errorMessage = "Invalid verification code. Please check and retry.");
+      setState(() =>
+          _errorMessage = "Invalid verification code. Please check and retry.");
     }
   }
 
@@ -117,8 +119,9 @@ class _LoginViewState extends State<LoginView> {
                                 TextSpan(
                                   text: 'g',
                                   style: TextStyle(
-                                    color: Color(0xFF863BC1), // Stylized purple lowercase 'g'
-                                    fontWeight: FontWeight.black,
+                                    color: Color(
+                                        0xFF863BC1), // Stylized purple lowercase 'g'
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 TextSpan(text: 'Events'),
@@ -127,7 +130,8 @@ class _LoginViewState extends State<LoginView> {
                           ),
                           const SizedBox(width: 10),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: const Color(0xFF863BC1),
                               borderRadius: BorderRadius.circular(4),
@@ -166,20 +170,23 @@ class _LoginViewState extends State<LoginView> {
                   decoration: BoxDecoration(
                     color: SportsTheme.bgSecondary,
                     borderRadius: BorderRadius.circular(16.0),
-                    border: Border.all(color: SportsTheme.borderNavy, width: 1.0),
+                    border:
+                        Border.all(color: SportsTheme.borderNavy, width: 1.0),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        _otpSent ? 'Enter Security OTP' : 'Corporate Member Access',
+                        _otpSent
+                            ? 'Enter Security OTP'
+                            : 'Corporate Member Access',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _otpSent 
-                            ? 'Verification OTP dispatched to your registered phone.' 
-                            : 'Sign in with your phone OTP. Certificated scorers are routed automatically.',
+                        _otpSent
+                            ? 'Verification OTP dispatched to your registered phone.'
+                            : 'Sign in with your phone OTP to access live tournament features.',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       const SizedBox(height: 24),
@@ -187,15 +194,18 @@ class _LoginViewState extends State<LoginView> {
                       // Errors banner
                       if (_errorMessage != null) ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8, horizontal: 12),
                           decoration: BoxDecoration(
                             color: Colors.redAccent.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                            border: Border.all(
+                                color: Colors.redAccent.withOpacity(0.3)),
                           ),
                           child: Text(
                             _errorMessage!,
-                            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.redAccent, fontSize: 12),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -209,14 +219,19 @@ class _LoginViewState extends State<LoginView> {
                           decoration: const InputDecoration(
                             labelText: 'Mobile Phone Number',
                             hintText: 'e.g. 9403890373',
-                            prefixIcon: Icon(Icons.phone_iphone, color: SportsTheme.textSecondary),
+                            prefixIcon: Icon(Icons.phone_iphone,
+                                color: SportsTheme.textSecondary),
                           ),
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleSendOtp,
-                          child: _isLoading 
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.black))
                               : const Text('DISPATCH OTP'),
                         ),
                       ] else ...[
@@ -226,14 +241,19 @@ class _LoginViewState extends State<LoginView> {
                           decoration: const InputDecoration(
                             labelText: '4-Digit Verification OTP',
                             hintText: 'e.g. 1234',
-                            prefixIcon: Icon(Icons.lock_outline, color: SportsTheme.textSecondary),
+                            prefixIcon: Icon(Icons.lock_outline,
+                                color: SportsTheme.textSecondary),
                           ),
                         ),
                         const SizedBox(height: 20),
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleVerifyOtp,
-                          child: _isLoading 
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black))
+                          child: _isLoading
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.black))
                               : const Text('VERIFY & LOGIN'),
                         ),
                         const SizedBox(height: 12),
@@ -245,12 +265,12 @@ class _LoginViewState extends State<LoginView> {
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 32),
-                
+
                 // Info Section
                 Text(
-                  'Registered scorers: use 88888 for scorer console mock bypass. Admins use 9403890373 or 99999.',
+                  'Use your registered mobile number and the OTP generated by the backend.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
                     fontSize: 11,

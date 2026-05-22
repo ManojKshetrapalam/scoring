@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import next from "next";
 import path from "path";
 import { fileURLToPath } from "url";
+import { runMigrations, verifyDatabaseConnection } from "./db.js";
 import { initSocket } from "./socket.js";
 import authRouter from "./routes/auth.js";
 import tournamentRouter from "./routes/tournaments.js";
@@ -21,6 +22,14 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 5001;
 const isProd = process.env.NODE_ENV === "production";
 
+try {
+  await verifyDatabaseConnection();
+  await runMigrations();
+} catch (err) {
+  console.error("[DB] Failed to connect to Supabase during startup:", err.message);
+  process.exit(1);
+}
+
 // Global Middleware Configs
 app.use(cors({ origin: "*" }));
 app.use(express.json());
@@ -33,6 +42,11 @@ app.use(["/api/matches", "/scoring/api/matches"], matchesRouter);
 // Health check endpoint
 app.get(["/health", "/scoring/health"], (req, res) => {
   res.json({ success: true, message: "Gevents Unlimited Cricket API is healthy." });
+});
+
+// Live check endpoint
+app.get(["/check", "/scoring/check", "/api/check", "/scoring/api/check"], (req, res) => {
+  res.json({ success: true, status: "live", message: "Backend server is live." });
 });
 
 // Centralized Global Error Handling Middleware

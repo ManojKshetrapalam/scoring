@@ -7,7 +7,12 @@ class ScorerView extends StatefulWidget {
   final int matchId;
   final String teamA;
   final String teamB;
-  const ScorerView({Key? key, required this.matchId, required this.teamA, required this.teamB}) : super(key: key);
+  const ScorerView(
+      {Key? key,
+      required this.matchId,
+      required this.teamA,
+      required this.teamB})
+      : super(key: key);
 
   @override
   State<ScorerView> createState() => _ScorerViewState();
@@ -15,15 +20,15 @@ class ScorerView extends StatefulWidget {
 
 class _ScorerViewState extends State<ScorerView> {
   final ApiService _apiService = ApiService();
-  
-  int _runs = 142;
-  int _wickets = 3;
-  double _overs = 16.2;
-  String _striker = "Vikram Malhotra";
-  String _bowler = "Aditya Sen";
+
+  int _runs = 0;
+  int _wickets = 0;
+  double _overs = 0.0;
+  String _striker = "";
+  String _bowler = "";
   String _battingTeam = "";
-  
-  List<int> _ballsList = [4, 1, 6, 2, 0, 1];
+
+  List<int> _ballsList = [];
   bool _isLoading = false;
 
   @override
@@ -48,7 +53,7 @@ class _ScorerViewState extends State<ScorerView> {
     };
 
     final success = await _apiService.submitBall(widget.matchId, payload);
-    
+
     setState(() {
       _isLoading = false;
       if (success) {
@@ -84,7 +89,8 @@ class _ScorerViewState extends State<ScorerView> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Registered Ball! +$runs runs ${isWicket ? "[WKT]" : ""}'),
+        content:
+            Text('Registered Ball! +$runs runs ${isWicket ? "[WKT]" : ""}'),
         duration: const Duration(milliseconds: 600),
         backgroundColor: SportsTheme.accentNeon,
       ),
@@ -172,14 +178,16 @@ class _ScorerViewState extends State<ScorerView> {
                 title: const Text('Wide (+1 Run)'),
                 onTap: () {
                   Navigator.pop(context);
-                  _handleScoreEvent(runs: 0, isWicket: false, extraType: 'wide');
+                  _handleScoreEvent(
+                      runs: 0, isWicket: false, extraType: 'wide');
                 },
               ),
               ListTile(
                 title: const Text('No Ball (+1 Run)'),
                 onTap: () {
                   Navigator.pop(context);
-                  _handleScoreEvent(runs: 0, isWicket: false, extraType: 'noball');
+                  _handleScoreEvent(
+                      runs: 0, isWicket: false, extraType: 'noball');
                 },
               ),
               ListTile(
@@ -212,7 +220,6 @@ class _ScorerViewState extends State<ScorerView> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          
           // Current live scoreboard card
           Container(
             padding: const EdgeInsets.all(16.0),
@@ -220,15 +227,19 @@ class _ScorerViewState extends State<ScorerView> {
             child: Column(
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       _battingTeam.toUpperCase(),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: SportsTheme.accentNeon),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: SportsTheme.accentNeon),
                     ),
                     Text(
                       'OVERS: ${_overs.toStringAsFixed(1)}',
-                      style: GoogleFonts.orbitron(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: GoogleFonts.orbitron(
+                          fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                   ],
                 ),
@@ -238,21 +249,29 @@ class _ScorerViewState extends State<ScorerView> {
                   children: [
                     Text(
                       '$_runs-$_wickets',
-                      style: GoogleFonts.orbitron(fontSize: 36, fontWeight: FontWeight.black, color: Colors.white),
+                      style: GoogleFonts.orbitron(
+                          fontSize: 36,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white),
                     ),
                     Text(
                       'Striker: $_striker\nBowler: $_bowler',
                       textAlign: TextAlign.end,
-                      style: const TextStyle(fontSize: 10, color: SportsTheme.textSecondary, height: 1.4),
+                      style: const TextStyle(
+                          fontSize: 10,
+                          color: SportsTheme.textSecondary,
+                          height: 1.4),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                
+
                 // Recent balls ticker
                 Row(
                   children: [
-                    const Text('This over: ', style: TextStyle(fontSize: 10, color: SportsTheme.textSecondary)),
+                    const Text('This over: ',
+                        style: TextStyle(
+                            fontSize: 10, color: SportsTheme.textSecondary)),
                     const SizedBox(width: 6),
                     Expanded(
                       child: SizedBox(
@@ -263,14 +282,16 @@ class _ScorerViewState extends State<ScorerView> {
                           itemBuilder: (context, idx) {
                             return Container(
                               margin: const EdgeInsets.only(right: 4),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Colors.white10,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 _ballsList[idx].toString(),
-                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    fontSize: 10, fontWeight: FontWeight.bold),
                               ),
                             );
                           },
@@ -282,9 +303,9 @@ class _ScorerViewState extends State<ScorerView> {
               ],
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Striker Bowler Swapper Cards
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -301,9 +322,15 @@ class _ScorerViewState extends State<ScorerView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('STRIKER', style: TextStyle(color: SportsTheme.textSecondary, fontSize: 8, fontWeight: FontWeight.bold)),
+                        const Text('STRIKER',
+                            style: TextStyle(
+                                color: SportsTheme.textSecondary,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 2),
-                        Text(_striker, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                        Text(_striker,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 11)),
                       ],
                     ),
                   ),
@@ -320,9 +347,15 @@ class _ScorerViewState extends State<ScorerView> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('BOWLER', style: TextStyle(color: SportsTheme.textSecondary, fontSize: 8, fontWeight: FontWeight.bold)),
+                        const Text('BOWLER',
+                            style: TextStyle(
+                                color: SportsTheme.textSecondary,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 2),
-                        Text(_bowler, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                        Text(_bowler,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 11)),
                       ],
                     ),
                   ),
@@ -339,7 +372,6 @@ class _ScorerViewState extends State<ScorerView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                
                 // Row 1: 0 (Dot), 1 Run, 2 Runs
                 Row(
                   children: [
@@ -347,7 +379,8 @@ class _ScorerViewState extends State<ScorerView> {
                       child: _buildTactileButton(
                         label: 'DOT BALL',
                         subLabel: '0 Runs',
-                        onTap: () => _handleScoreEvent(runs: 0, isWicket: false),
+                        onTap: () =>
+                            _handleScoreEvent(runs: 0, isWicket: false),
                         color: SportsTheme.bgSecondary,
                       ),
                     ),
@@ -356,7 +389,8 @@ class _ScorerViewState extends State<ScorerView> {
                       child: _buildTactileButton(
                         label: '+1 RUN',
                         subLabel: 'Single',
-                        onTap: () => _handleScoreEvent(runs: 1, isWicket: false),
+                        onTap: () =>
+                            _handleScoreEvent(runs: 1, isWicket: false),
                         color: SportsTheme.bgSecondary,
                       ),
                     ),
@@ -365,7 +399,8 @@ class _ScorerViewState extends State<ScorerView> {
                       child: _buildTactileButton(
                         label: '+2 RUNS',
                         subLabel: 'Double',
-                        onTap: () => _handleScoreEvent(runs: 2, isWicket: false),
+                        onTap: () =>
+                            _handleScoreEvent(runs: 2, isWicket: false),
                         color: SportsTheme.bgSecondary,
                       ),
                     ),
@@ -380,7 +415,8 @@ class _ScorerViewState extends State<ScorerView> {
                       child: _buildTactileButton(
                         label: '+3 RUNS',
                         subLabel: 'Triple',
-                        onTap: () => _handleScoreEvent(runs: 3, isWicket: false),
+                        onTap: () =>
+                            _handleScoreEvent(runs: 3, isWicket: false),
                         color: SportsTheme.bgSecondary,
                       ),
                     ),
@@ -389,7 +425,8 @@ class _ScorerViewState extends State<ScorerView> {
                       child: _buildTactileButton(
                         label: 'FOUR (+4)',
                         subLabel: 'Boundary',
-                        onTap: () => _handleScoreEvent(runs: 4, isWicket: false),
+                        onTap: () =>
+                            _handleScoreEvent(runs: 4, isWicket: false),
                         color: SportsTheme.accentNeon.withOpacity(0.1),
                         textColor: SportsTheme.accentNeon,
                       ),
@@ -399,7 +436,8 @@ class _ScorerViewState extends State<ScorerView> {
                       child: _buildTactileButton(
                         label: 'SIX (+6)',
                         subLabel: 'Maximal',
-                        onTap: () => _handleScoreEvent(runs: 6, isWicket: false),
+                        onTap: () =>
+                            _handleScoreEvent(runs: 6, isWicket: false),
                         color: SportsTheme.accentNeon.withOpacity(0.2),
                         textColor: SportsTheme.accentNeon,
                       ),
@@ -432,17 +470,18 @@ class _ScorerViewState extends State<ScorerView> {
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        icon: const Icon(Icons.sports_cricket, size: 16, color: Colors.black),
-                        label: const Text('WICKET OUT!', style: TextStyle(fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.sports_cricket,
+                            size: 16, color: Colors.black),
+                        label: const Text('WICKET OUT!',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],
                 ),
-
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
         ],
       ),
@@ -471,12 +510,15 @@ class _ScorerViewState extends State<ScorerView> {
           children: [
             Text(
               label,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
             ),
             const SizedBox(height: 2),
             Text(
               subLabel,
-              style: TextStyle(fontSize: 9, color: SportsTheme.textSecondary.withOpacity(0.6)),
+              style: TextStyle(
+                  fontSize: 9,
+                  color: SportsTheme.textSecondary.withOpacity(0.6)),
             ),
           ],
         ),

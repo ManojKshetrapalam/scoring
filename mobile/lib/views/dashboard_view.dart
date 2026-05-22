@@ -14,10 +14,11 @@ class DashboardView extends StatefulWidget {
   State<DashboardView> createState() => _DashboardViewState();
 }
 
-class _DashboardViewState extends State<DashboardView> with SingleTickerProviderStateMixin {
+class _DashboardViewState extends State<DashboardView>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   late TabController _tabController;
-  
+
   List<Map<String, dynamic>> _tournaments = [];
   bool _isLoading = true;
 
@@ -72,8 +73,8 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                   TextSpan(
                     text: 'g',
                     style: TextStyle(
-                      color: Color(0xFF863BC1), // Stylized purple lowercase 'g'
-                      fontWeight: FontWeight.black,
+                      color: Color(0xFF863BC1),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   TextSpan(text: 'Events'),
@@ -105,26 +106,30 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
             margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
             decoration: BoxDecoration(
-              color: role == 'admin' 
-                  ? Colors.redAccent.withOpacity(0.15) 
-                  : (role == 'scorer' ? SportsTheme.accentNeon.withOpacity(0.15) : Colors.white10),
+              color: role == 'admin'
+                  ? Colors.redAccent.withOpacity(0.15)
+                  : (role == 'scorer'
+                      ? SportsTheme.accentNeon.withOpacity(0.15)
+                      : Colors.white10),
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
-                color: role == 'admin' 
-                    ? Colors.redAccent 
-                    : (role == 'scorer' ? SportsTheme.accentNeon : Colors.white24)
-              ),
+                  color: role == 'admin'
+                      ? Colors.redAccent
+                      : (role == 'scorer'
+                          ? SportsTheme.accentNeon
+                          : Colors.white24)),
             ),
             alignment: Alignment.center,
             child: Text(
               role.toUpperCase(),
               style: TextStyle(
-                color: role == 'admin' 
-                    ? Colors.redAccent 
-                    : (role == 'scorer' ? SportsTheme.accentNeon : Colors.white),
-                fontSize: 9, 
-                fontWeight: FontWeight.bold
-              ),
+                  color: role == 'admin'
+                      ? Colors.redAccent
+                      : (role == 'scorer'
+                          ? SportsTheme.accentNeon
+                          : Colors.white),
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold),
             ),
           ),
           IconButton(
@@ -138,7 +143,8 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
           indicatorColor: SportsTheme.accentNeon,
           labelColor: SportsTheme.accentNeon,
           unselectedLabelColor: SportsTheme.textSecondary,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          labelStyle:
+              const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           tabs: const [
             Tab(text: 'TOURNAMENTS'),
             Tab(text: 'STANDINGS'),
@@ -146,8 +152,9 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
           ],
         ),
       ),
-      body: _isLoading 
-          ? const Center(child: CircularProgressIndicator(color: SportsTheme.accentNeon))
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: SportsTheme.accentNeon))
           : TabBarView(
               controller: _tabController,
               children: [
@@ -171,7 +178,7 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
       itemBuilder: (context, index) {
         final t = _tournaments[index];
         final fixtures = List<Map<String, dynamic>>.from(t['fixtures'] ?? []);
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -180,46 +187,59 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
                 color: SportsTheme.bgSecondary,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(12)),
                 border: Border.all(color: SportsTheme.borderNavy),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.between,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: SportsTheme.accentNeon.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           t['format'].toString().toUpperCase(),
-                          style: const TextStyle(color: SportsTheme.accentNeon, fontSize: 9, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: SportsTheme.accentNeon,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                       Text(
                         t['status'],
-                        style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            color: Colors.green,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     t['name'],
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white),
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(Icons.location_on, size: 12, color: SportsTheme.textSecondary),
+                      const Icon(Icons.location_on,
+                          size: 12, color: SportsTheme.textSecondary),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           t['location'],
-                          style: const TextStyle(color: SportsTheme.textSecondary, fontSize: 11),
+                          style: const TextStyle(
+                              color: SportsTheme.textSecondary, fontSize: 11),
                         ),
                       ),
                     ],
@@ -227,46 +247,55 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                 ],
               ),
             ),
-            
+
             // Matches inside tournament
             Container(
-              margin: const EdgeInsets.bottom(20.0),
+              margin: const EdgeInsets.only(bottom: 20.0),
               decoration: BoxDecoration(
                 color: SportsTheme.bgPrimary,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(12)),
                 border: Border.all(color: SportsTheme.borderNavy),
               ),
               child: ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: fixtures.length,
-                separatorBuilder: (_, __) => const Divider(color: SportsTheme.borderNavy, height: 1),
+                separatorBuilder: (_, __) =>
+                    const Divider(color: SportsTheme.borderNavy, height: 1),
                 itemBuilder: (context, fIndex) {
                   final f = fixtures[fIndex];
                   final isLive = f['status'] == 'Live';
-                  
+
                   return InkWell(
                     onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => MatchCenterView(matchId: f['id'], tournamentName: t['name']),
-                        ),
-                      ).then((_) => _loadData());
+                      Navigator.of(context)
+                          .push(
+                            MaterialPageRoute(
+                              builder: (_) => MatchCenterView(
+                                  matchId: f['id'], tournamentName: t['name']),
+                            ),
+                          )
+                          .then((_) => _loadData());
                     },
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.between,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 f['match_type'].toUpperCase(),
-                                style: const TextStyle(color: SportsTheme.textSecondary, fontSize: 9, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    color: SportsTheme.textSecondary,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold),
                               ),
                               if (isLive) ...[
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: Colors.red,
                                     borderRadius: BorderRadius.circular(4),
@@ -276,10 +305,16 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                                       Container(
                                         width: 5,
                                         height: 5,
-                                        decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                        decoration: const BoxDecoration(
+                                            color: Colors.white,
+                                            shape: BoxShape.circle),
                                       ),
                                       const SizedBox(width: 4),
-                                      const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                      const Text('LIVE',
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                 )
@@ -287,10 +322,11 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                                 Text(
                                   f['status'].toUpperCase(),
                                   style: TextStyle(
-                                    color: f['status'] == 'Upcoming' ? SportsTheme.accentNeon : SportsTheme.textSecondary,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold
-                                  ),
+                                      color: f['status'] == 'Upcoming'
+                                          ? SportsTheme.accentNeon
+                                          : SportsTheme.textSecondary,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold),
                                 )
                               ]
                             ],
@@ -303,20 +339,28 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                                 child: Text(
                                   f['team_a'],
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
                                 ),
                               ),
-                              const Text('VS', style: TextStyle(color: SportsTheme.accentNeon, fontWeight: FontWeight.w900, fontSize: 12)),
+                              const Text('VS',
+                                  style: TextStyle(
+                                      color: SportsTheme.accentNeon,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12)),
                               Expanded(
                                 child: Text(
                                   f['team_b'],
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
                                 ),
                               ),
                             ],
                           ),
-                          
+
                           // Quick scoring summaries
                           if (isLive && f['score'] != null) ...[
                             const SizedBox(height: 12),
@@ -329,10 +373,9 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                               child: Text(
                                 '${f['score']['runs']}-${f['score']['wickets']} (${f['score']['overs']} Ov)',
                                 style: GoogleFonts.orbitron(
-                                  color: SportsTheme.accentNeon,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold
-                                ),
+                                    color: SportsTheme.accentNeon,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
@@ -342,18 +385,26 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                             const SizedBox(height: 12),
                             ElevatedButton.icon(
                               onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => ScorerView(matchId: f['id'], teamA: f['team_a'], teamB: f['team_b']),
-                                  ),
-                                ).then((_) => _loadData());
+                                Navigator.of(context)
+                                    .push(
+                                      MaterialPageRoute(
+                                        builder: (_) => ScorerView(
+                                            matchId: f['id'],
+                                            teamA: f['team_a'],
+                                            teamB: f['team_b']),
+                                      ),
+                                    )
+                                    .then((_) => _loadData());
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: SportsTheme.accentNeon,
-                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: 8, horizontal: 16),
                               ),
-                              icon: const Icon(Icons.sports, size: 14, color: Colors.black),
-                              label: const Text('SCORE MATCH', style: TextStyle(fontSize: 11)),
+                              icon: const Icon(Icons.sports,
+                                  size: 14, color: Colors.black),
+                              label: const Text('SCORE MATCH',
+                                  style: TextStyle(fontSize: 11)),
                             ),
                           ],
 
@@ -362,11 +413,14 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                             TextButton.icon(
                               onPressed: () {
                                 Navigator.of(context).push(
-                                  MaterialPageRoute(builder: (_) => TeamMgmtView(teamName: f['team_a'])),
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          TeamMgmtView(teamName: f['team_a'])),
                                 );
                               },
                               icon: const Icon(Icons.people, size: 14),
-                              label: const Text('ROSTER MANAGER', style: TextStyle(fontSize: 11)),
+                              label: const Text('ROSTER MANAGER',
+                                  style: TextStyle(fontSize: 11)),
                             ),
                           ],
                         ],
@@ -385,7 +439,8 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
   // --- TAB 2: STANDINGS TABLE ---
   Widget _buildStandingsTab() {
     if (_tournaments.isEmpty) return const SizedBox();
-    final t = _tournaments.first; // Load first tournament standings as core model
+    final t =
+        _tournaments.first; // Load first tournament standings as core model
     final standings = List<Map<String, dynamic>>.from(t['standings'] ?? []);
 
     return SingleChildScrollView(
@@ -395,7 +450,10 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
         children: [
           Text(
             t['name'].toString().toUpperCase(),
-            style: const TextStyle(color: SportsTheme.accentNeon, fontSize: 11, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: SportsTheme.accentNeon,
+                fontSize: 11,
+                fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           const Text(
@@ -413,29 +471,48 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
               columnSpacing: 10,
               horizontalMargin: 12,
               columns: const [
-                DataColumn(label: Text('TEAM', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('P', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('W', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('NRR', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('PTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: SportsTheme.accentNeon))),
+                DataColumn(
+                    label: Text('TEAM',
+                        style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.bold))),
+                DataColumn(
+                    label: Text('P',
+                        style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.bold))),
+                DataColumn(
+                    label: Text('W',
+                        style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.bold))),
+                DataColumn(
+                    label: Text('NRR',
+                        style: TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.bold))),
+                DataColumn(
+                    label: Text('PTS',
+                        style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: SportsTheme.accentNeon))),
               ],
               rows: standings.map((s) {
                 return DataRow(cells: [
-                  DataCell(
-                    Text(
-                      s['team'],
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                    )
-                  ),
-                  DataCell(Text(s['played'].toString(), style: const TextStyle(fontSize: 11))),
-                  DataCell(Text(s['won'].toString(), style: const TextStyle(fontSize: 11))),
-                  DataCell(Text(s['nrr'].toString(), style: const TextStyle(fontSize: 11, color: SportsTheme.textSecondary))),
-                  DataCell(
-                    Text(
-                      s['points'].toString(),
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: SportsTheme.accentNeon, fontSize: 12)
-                    )
-                  ),
+                  DataCell(Text(
+                    s['team'],
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 11),
+                  )),
+                  DataCell(Text(s['played'].toString(),
+                      style: const TextStyle(fontSize: 11))),
+                  DataCell(Text(s['won'].toString(),
+                      style: const TextStyle(fontSize: 11))),
+                  DataCell(Text(s['nrr'].toString(),
+                      style: const TextStyle(
+                          fontSize: 11, color: SportsTheme.textSecondary))),
+                  DataCell(Text(s['points'].toString(),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: SportsTheme.accentNeon,
+                          fontSize: 12))),
                 ]);
               }).toList(),
             ),
@@ -464,12 +541,16 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
               Container(
                 width: 12,
                 height: 12,
-                decoration: const BoxDecoration(color: SportsTheme.accentOrange, shape: BoxShape.circle),
+                decoration: const BoxDecoration(
+                    color: SportsTheme.accentOrange, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
               Text(
                 'ORANGE CAP LEADERBOARD',
-                style: GoogleFonts.orbitron(fontSize: 12, fontWeight: FontWeight.black, color: SportsTheme.accentOrange),
+                style: GoogleFonts.orbitron(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: SportsTheme.accentOrange),
               ),
             ],
           ),
@@ -481,7 +562,7 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
             itemBuilder: (context, index) {
               final player = orange[index];
               return Container(
-                margin: const EdgeInsets.bottom(8),
+                margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: SportsTheme.bgSecondary,
@@ -489,20 +570,30 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                   border: Border.all(color: SportsTheme.borderNavy),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(player['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text(player['team'], style: const TextStyle(color: SportsTheme.textSecondary, fontSize: 10)),
+                        Text(player['name'],
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text(player['team'],
+                            style: const TextStyle(
+                                color: SportsTheme.textSecondary,
+                                fontSize: 10)),
                       ],
                     ),
                     Row(
                       children: [
-                        Text('${player['runs']} runs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text('${player['runs']} runs',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
                         const SizedBox(width: 12),
-                        Text('Avg: ${player['avg']}', style: const TextStyle(color: SportsTheme.textSecondary, fontSize: 10)),
+                        Text('Avg: ${player['avg']}',
+                            style: const TextStyle(
+                                color: SportsTheme.textSecondary,
+                                fontSize: 10)),
                       ],
                     )
                   ],
@@ -518,12 +609,16 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
               Container(
                 width: 12,
                 height: 12,
-                decoration: const BoxDecoration(color: SportsTheme.accentPurple, shape: BoxShape.circle),
+                decoration: const BoxDecoration(
+                    color: SportsTheme.accentPurple, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
               Text(
                 'PURPLE CAP LEADERBOARD',
-                style: GoogleFonts.orbitron(fontSize: 12, fontWeight: FontWeight.black, color: SportsTheme.accentPurple),
+                style: GoogleFonts.orbitron(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: SportsTheme.accentPurple),
               ),
             ],
           ),
@@ -535,7 +630,7 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
             itemBuilder: (context, index) {
               final player = purple[index];
               return Container(
-                margin: const EdgeInsets.bottom(8),
+                margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: SportsTheme.bgSecondary,
@@ -543,20 +638,30 @@ class _DashboardViewState extends State<DashboardView> with SingleTickerProvider
                   border: Border.all(color: SportsTheme.borderNavy),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.between,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(player['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text(player['team'], style: const TextStyle(color: SportsTheme.textSecondary, fontSize: 10)),
+                        Text(player['name'],
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text(player['team'],
+                            style: const TextStyle(
+                                color: SportsTheme.textSecondary,
+                                fontSize: 10)),
                       ],
                     ),
                     Row(
                       children: [
-                        Text('${player['wickets']} wkts', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text('${player['wickets']} wkts',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
                         const SizedBox(width: 12),
-                        Text('Econ: ${player['econ']}', style: const TextStyle(color: SportsTheme.textSecondary, fontSize: 10)),
+                        Text('Econ: ${player['econ']}',
+                            style: const TextStyle(
+                                color: SportsTheme.textSecondary,
+                                fontSize: 10)),
                       ],
                     )
                   ],

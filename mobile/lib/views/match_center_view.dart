@@ -6,7 +6,9 @@ import '../theme.dart';
 class MatchCenterView extends StatefulWidget {
   final int matchId;
   final String tournamentName;
-  const MatchCenterView({Key? key, required this.matchId, required this.tournamentName}) : super(key: key);
+  const MatchCenterView(
+      {Key? key, required this.matchId, required this.tournamentName})
+      : super(key: key);
 
   @override
   State<MatchCenterView> createState() => _MatchCenterViewState();
@@ -21,7 +23,7 @@ class _MatchCenterViewState extends State<MatchCenterView> {
   void initState() {
     super.initState();
     _loadInitialState();
-    
+
     // Subscribe to live score update websocket
     _apiService.initSocket(widget.matchId);
     _apiService.scoreStream.listen((event) {
@@ -47,7 +49,8 @@ class _MatchCenterViewState extends State<MatchCenterView> {
     setState(() => _isLoading = true);
     final details = await _apiService.getTournamentDetails(1); // Fetch template
     if (details != null) {
-      final fixtures = List<Map<String, dynamic>>.from(details['fixtures'] ?? []);
+      final fixtures =
+          List<Map<String, dynamic>>.from(details['fixtures'] ?? []);
       for (var f in fixtures) {
         if (f['id'] == widget.matchId) {
           setState(() {
@@ -74,7 +77,8 @@ class _MatchCenterViewState extends State<MatchCenterView> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator(color: SportsTheme.accentNeon)),
+        body: Center(
+            child: CircularProgressIndicator(color: SportsTheme.accentNeon)),
       );
     }
 
@@ -93,8 +97,10 @@ class _MatchCenterViewState extends State<MatchCenterView> {
     final wickets = score['wickets'] ?? 0;
     final overs = score['overs'] ?? '0.0';
     final battingTeam = score['batting_team'] ?? _matchData!['team_a'];
-    final bowlingTeam = battingTeam == _matchData!['team_a'] ? _matchData!['team_b'] : _matchData!['team_a'];
-    
+    final bowlingTeam = battingTeam == _matchData!['team_a']
+        ? _matchData!['team_b']
+        : _matchData!['team_a'];
+
     final lastBalls = List<dynamic>.from(score['balls'] ?? []);
     final commentary = List<String>.from(score['commentary'] ?? []);
 
@@ -103,8 +109,12 @@ class _MatchCenterViewState extends State<MatchCenterView> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.tournamentName, style: const TextStyle(fontSize: 10, color: SportsTheme.accentNeon)),
-            Text('${_matchData!['team_a']} vs ${_matchData!['team_b']}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            Text(widget.tournamentName,
+                style: const TextStyle(
+                    fontSize: 10, color: SportsTheme.accentNeon)),
+            Text('${_matchData!['team_a']} vs ${_matchData!['team_b']}',
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -112,22 +122,25 @@ class _MatchCenterViewState extends State<MatchCenterView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            
             // Premium scoreboard banner
             Container(
               padding: const EdgeInsets.all(20.0),
               decoration: const BoxDecoration(
                 color: SportsTheme.bgSecondary,
-                border: Border(bottom: BorderSide(color: SportsTheme.borderNavy)),
+                border:
+                    Border(bottom: BorderSide(color: SportsTheme.borderNavy)),
               ),
               child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.between,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         battingTeam.toString().toUpperCase(),
-                        style: const TextStyle(color: SportsTheme.accentNeon, fontWeight: FontWeight.bold, fontSize: 13),
+                        style: const TextStyle(
+                            color: SportsTheme.accentNeon,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13),
                       ),
                       if (isLive) ...[
                         Row(
@@ -143,20 +156,26 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                             const SizedBox(width: 6),
                             const Text(
                               'LIVE CENTER',
-                              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 10),
+                              style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10),
                             )
                           ],
                         )
                       ] else ...[
                         Text(
                           _matchData!['status'].toString().toUpperCase(),
-                          style: const TextStyle(color: SportsTheme.textSecondary, fontSize: 10, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: SportsTheme.textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold),
                         ),
                       ]
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Big Runs & Overs
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -170,7 +189,7 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                             '$runs-$wickets',
                             style: GoogleFonts.orbitron(
                               fontSize: 48,
-                              fontWeight: FontWeight.black,
+                              fontWeight: FontWeight.w500,
                               color: Colors.white,
                             ),
                           ),
@@ -198,7 +217,8 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                           ),
                           Text(
                             'CRR: ${(double.parse(overs) > 0 ? (runs / double.parse(overs)) : 0.0).toStringAsFixed(2)}',
-                            style: const TextStyle(color: SportsTheme.textSecondary, fontSize: 11),
+                            style: const TextStyle(
+                                color: SportsTheme.textSecondary, fontSize: 11),
                           ),
                         ],
                       )
@@ -211,7 +231,10 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                     children: [
                       const Text(
                         'Recent balls: ',
-                        style: TextStyle(color: SportsTheme.textSecondary, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: SportsTheme.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -227,26 +250,31 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                                 width: 28,
                                 height: 28,
                                 decoration: BoxDecoration(
-                                  color: item.toString() == 'W' 
-                                      ? Colors.redAccent.withOpacity(0.15) 
-                                      : (item.toString() == '6' ? SportsTheme.accentNeon.withOpacity(0.15) : Colors.white10),
+                                  color: item.toString() == 'W'
+                                      ? Colors.redAccent.withOpacity(0.15)
+                                      : (item.toString() == '6'
+                                          ? SportsTheme.accentNeon
+                                              .withOpacity(0.15)
+                                          : Colors.white10),
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: item.toString() == 'W' 
-                                        ? Colors.redAccent 
-                                        : (item.toString() == '6' ? SportsTheme.accentNeon : Colors.white24)
-                                  ),
+                                      color: item.toString() == 'W'
+                                          ? Colors.redAccent
+                                          : (item.toString() == '6'
+                                              ? SportsTheme.accentNeon
+                                              : Colors.white24)),
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
                                   item.toString(),
                                   style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: item.toString() == 'W' 
-                                        ? Colors.redAccent 
-                                        : (item.toString() == '6' ? SportsTheme.accentNeon : Colors.white)
-                                  ),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: item.toString() == 'W'
+                                          ? Colors.redAccent
+                                          : (item.toString() == '6'
+                                              ? SportsTheme.accentNeon
+                                              : Colors.white)),
                                 ),
                               );
                             },
@@ -258,7 +286,7 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                 ],
               ),
             ),
-            
+
             // Partnership and Striker Card
             if (hasScore) ...[
               Padding(
@@ -279,28 +307,41 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('ACTIVE STRIKER', style: TextStyle(color: SportsTheme.textSecondary, fontSize: 9, fontWeight: FontWeight.bold)),
+                                const Text('ACTIVE STRIKER',
+                                    style: TextStyle(
+                                        color: SportsTheme.textSecondary,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 4),
                                 Text(
                                   score['striker'] ?? 'Vikram Malhotra',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(
                             height: 30,
-                            child: VerticalDivider(color: SportsTheme.borderNavy, thickness: 1),
+                            child: VerticalDivider(
+                                color: SportsTheme.borderNavy, thickness: 1),
                           ),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('BOWLING FOR $bowlingTeam', style: TextStyle(color: SportsTheme.textSecondary, fontSize: 9, fontWeight: FontWeight.bold)),
+                                Text('BOWLING FOR $bowlingTeam',
+                                    style: const TextStyle(
+                                        color: SportsTheme.textSecondary,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 4),
                                 Text(
                                   score['bowler'] ?? 'Aditya Sen',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
                                 ),
                               ],
                             ),
@@ -325,17 +366,23 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.location_on_outlined, color: SportsTheme.accentNeon, size: 20),
+                    const Icon(Icons.location_on_outlined,
+                        color: SportsTheme.accentNeon, size: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('VENUE & TYPE', style: TextStyle(color: SportsTheme.textSecondary, fontSize: 9, fontWeight: FontWeight.bold)),
+                          const Text('VENUE & TYPE',
+                              style: TextStyle(
+                                  color: SportsTheme.textSecondary,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold)),
                           const SizedBox(height: 2),
                           Text(
                             '${_matchData!['venue']} (${_matchData!['match_type']})',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -363,7 +410,8 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                     child: Center(
                       child: Text(
                         'Commentary channel is empty. Awaiting first ball delivery.',
-                        style: TextStyle(color: SportsTheme.textSecondary, fontSize: 12),
+                        style: TextStyle(
+                            color: SportsTheme.textSecondary, fontSize: 12),
                       ),
                     ),
                   )
@@ -375,48 +423,57 @@ class _MatchCenterViewState extends State<MatchCenterView> {
                     itemBuilder: (context, cIndex) {
                       final item = commentary[cIndex];
                       final isWicket = item.contains('[WICKET!]');
-                      final isBoundary = item.contains('SIX') || item.contains('4 run');
+                      final isBoundary =
+                          item.contains('SIX') || item.contains('4 run');
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8.0),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isWicket 
-                              ? Colors.redAccent.withOpacity(0.05) 
-                              : (isBoundary ? SportsTheme.accentNeon.withOpacity(0.04) : SportsTheme.bgSecondary),
+                          color: isWicket
+                              ? Colors.redAccent.withOpacity(0.05)
+                              : (isBoundary
+                                  ? SportsTheme.accentNeon.withOpacity(0.04)
+                                  : SportsTheme.bgSecondary),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: isWicket 
-                                ? Colors.redAccent.withOpacity(0.3) 
-                                : (isBoundary ? SportsTheme.accentNeon.withOpacity(0.3) : SportsTheme.borderNavy),
-                            width: 1.0
-                          ),
+                              color: isWicket
+                                  ? Colors.redAccent.withOpacity(0.3)
+                                  : (isBoundary
+                                      ? SportsTheme.accentNeon.withOpacity(0.3)
+                                      : SportsTheme.borderNavy),
+                              width: 1.0),
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 4),
                               decoration: BoxDecoration(
-                                color: isWicket 
-                                    ? Colors.redAccent 
-                                    : (isBoundary ? SportsTheme.accentNeon : Colors.white10),
+                                color: isWicket
+                                    ? Colors.redAccent
+                                    : (isBoundary
+                                        ? SportsTheme.accentNeon
+                                        : Colors.white10),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 item.split(':').first,
                                 style: TextStyle(
-                                  fontWeight: FontWeight.bold, 
-                                  color: isWicket || isBoundary ? Colors.black : Colors.white,
-                                  fontSize: 10
-                                ),
+                                    fontWeight: FontWeight.bold,
+                                    color: isWicket || isBoundary
+                                        ? Colors.black
+                                        : Colors.white,
+                                    fontSize: 10),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 item.substring(item.indexOf(':') + 1).trim(),
-                                style: const TextStyle(fontSize: 12, height: 1.4),
+                                style:
+                                    const TextStyle(fontSize: 12, height: 1.4),
                               ),
                             ),
                           ],

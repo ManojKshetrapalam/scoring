@@ -3,15 +3,16 @@ import 'package:google_fonts/google_fonts.dart';
 
 class SportsTheme {
   // Brand HSL translations to Hex
-  static const Color bgPrimary = Color(0xFF070C1B);       // Space Navy Black
-  static const Color bgSecondary = Color(0xFF0F162A);     // Stadium Card Navy
-  static const Color accentNeon = Color(0xFF39FF0C);      // vibrant Neon Green
-  static const Color accentNeonHover = Color(0xFF2EDB0A); // Slightly darker green
-  static const Color borderNavy = Color(0xFF1B243B);      // Border color
-  static const Color textPrimary = Color(0xFFFCFCFC);     // Off white
-  static const Color textSecondary = Color(0xFF9EAAB9);   // Cool grey
-  static const Color accentOrange = Color(0xFFFF9800);    // Orange Cap highlight
-  static const Color accentPurple = Color(0xFF9C27B0);    // Purple Cap highlight
+  static const Color bgPrimary = Color(0xFF070C1B); // Space Navy Black
+  static const Color bgSecondary = Color(0xFF0F162A); // Stadium Card Navy
+  static const Color accentNeon = Color(0xFF39FF0C); // vibrant Neon Green
+  static const Color accentNeonHover =
+      Color(0xFF2EDB0A); // Slightly darker green
+  static const Color borderNavy = Color(0xFF1B243B); // Border color
+  static const Color textPrimary = Color(0xFFFCFCFC); // Off white
+  static const Color textSecondary = Color(0xFF9EAAB9); // Cool grey
+  static const Color accentOrange = Color(0xFFFF9800); // Orange Cap highlight
+  static const Color accentPurple = Color(0xFF9C27B0); // Purple Cap highlight
 
   static ThemeData get darkTheme {
     return ThemeData.dark().copyWith(
@@ -26,10 +27,11 @@ class SportsTheme {
       ),
       dividerColor: borderNavy,
       cardColor: bgSecondary,
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
+      textTheme:
+          GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
         titleLarge: GoogleFonts.orbitron(
           fontSize: 22,
-          fontWeight: FontWeight.black,
+          fontWeight: FontWeight.w500,
           color: textPrimary,
           letterSpacing: 0.5,
         ),
@@ -93,7 +95,8 @@ class SportsTheme {
         fillColor: bgSecondary,
         labelStyle: const TextStyle(color: textSecondary, fontSize: 13),
         hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8.0),
           borderSide: const BorderSide(color: borderNavy, width: 1.0),

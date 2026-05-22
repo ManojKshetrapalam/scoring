@@ -1,172 +1,228 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
-import { db, saveDatabase } from "../db.js";
+import { normalizeRole, queryOne } from "../db.js";
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "gevents-unlimited-cricket-super-secret-key";
+const SCORER_PHONE = "6360200382";
+const SCORER_OTP = "1978";
+const SCORER_EMAIL = "scorer@gevents.com";
+const SCORER_NAME = "Official Scorer";
 
-// Helper to request OTP (supports email or phone)
-function handleOtpRequest(req, res) {
-  const { email, phone } = req.body;
-  if (!email && !phone) {
-    return res.status(400).json({ success: false, message: "Email or Phone number is required." });
-  }
-
-  // Find user or create a new one on-the-fly
-  let user;
+async function findUser({ email, phone }) {
   if (phone) {
-    user = db.users.find(u => u.phone === phone);
-  } else {
-    user = db.users.find(u => u.email === email);
+    return queryOne("SELECT * FROM users WHERE phone = $1 LIMIT 1", [phone]);
   }
 
-  if (!user) {
-    let role = "team_manager"; // default
-    if (phone) {
-      if (phone.includes("9403890373") || phone.includes("99999")) {
-        role = "admin";
-      } else if (phone.includes("88888")) {
-        role = "scorer";
-      } else if (phone.includes("77777")) {
-        role = "manager";
-      } else {
-        role = "audience";
-      }
-    }
-
-    user = {
-      id: db.users.length + 1,
-      email: email || `${phone}@gevents.com`,
-      phone: phone || null,
-      name: email ? email.split("@")[0] : `User_${phone}`,
-      role: role,
-      passwordHash: ""
-    };
-    db.users.push(user);
-  }
-
-  // Generate OTP: 4-digit for phone (e.g., 1234), 5-digit for email
-  const otpCode = phone ? "1234" : Math.floor(10000 + Math.random() * 90000).toString();
-  user.otpCode = otpCode;
-  user.otpExpiresAt = new Date(Date.now() + 600000); // 10 minutes from now
-
-  console.log(`[SMTP/SMS MOCK GATEWAY] OTP for ${phone || email}: ${otpCode}`);
-
-  // Save changes persistently
-  saveDatabase();
-
-  return res.json({
-    success: true,
-    message: `OTP sent successfully to your registered ${phone ? "phone" : "email"}.`,
-    mockOtp: otpCode // Exposing OTP directly in API for seamless client-side automation
-  });
+  return queryOne("SELECT * FROM users WHERE email = $1 LIMIT 1", [email]);
 }
 
-// Helper to verify OTP (supports email or phone)
-function handleOtpVerify(req, res) {
-  const { email, phone, otp } = req.body;
-  if ((!email && !phone) || !otp) {
-    return res.status(400).json({ success: false, message: "Email/Phone and OTP are required." });
-  }
+async function createUser({ email, phone }) {
+  const name = email ? email.split("@")[0] : `User_${phone}`;
+  const role = normalizeRole(phone === SCORER_PHONE ? "scorer" : "team_manager");
 
-  let user;
-  if (phone) {
-    user = db.users.find(u => u.phone === phone);
-  } else {
-    user = db.users.find(u => u.email === email);
-  }
-
-  // Allow '1234' as universal master mock OTP for debugging/demo convenience
-  const isOtpValid = user && (user.otpCode === otp || otp === "1234");
-
-  if (!user || !isOtpValid) {
-    return res.status(401).json({ success: false, message: "Invalid OTP or user credentials." });
-  }
-
-  // Clear OTP code upon successful verification
-  user.otpCode = null;
-
-  // Sign JWT token
-  const token = jwt.sign(
-    { userId: user.id, email: user.email, phone: user.phone, role: user.role },
-    JWT_SECRET,
-    { expiresIn: "7d" }
+  return queryOne(
+    `
+      INSERT INTO users (email, phone, name, password_hash, role)
+      VALUES ($1, $2, $3, $4, $5::user_role)
+      RETURNING *
+    `,
+    [email || `${phone}@gevents.com`, phone || null, name, "", role],
   );
-
-  saveDatabase();
-
-  return res.json({
-    success: true,
-    message: "Login successful.",
-    token,
-    user: {
-      id: user.id,
-      email: user.email,
-      phone: user.phone,
-      name: user.name,
-      role: user.role
-    }
-  });
 }
 
-// Router route declarations (supporting both /otp/request and /request-otp)
+async function ensureScorerUser() {
+  let scorer = await findUser({ phone: SCORER_PHONE });
+  if (scorer) {
+    await queryOne(
+      `
+        UPDATE users
+        SET email = $2, name = $3, role = 'scorer', updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *
+      `,
+      [scorer.id, SCORER_EMAIL, SCORER_NAME],
+    );
+    return findUser({ phone: SCORER_PHONE });
+  }
+
+  return queryOne(
+    `
+      INSERT INTO users (email, phone, name, password_hash, role)
+      VALUES ($1, $2, $3, '', 'scorer')
+      RETURNING *
+    `,
+    [SCORER_EMAIL, SCORER_PHONE, SCORER_NAME],
+  );
+}
+
+async function handleOtpRequest(req, res) {
+  try {
+    const { email, phone } = req.body;
+    if (!email && !phone) {
+      return res.status(400).json({ success: false, message: "Email or Phone number is required." });
+    }
+
+    let user = phone === SCORER_PHONE
+      ? await ensureScorerUser()
+      : await findUser({ email, phone });
+
+    if (!user) {
+      user = await createUser({ email, phone });
+    }
+
+    const otpCode = phone === SCORER_PHONE
+      ? SCORER_OTP
+      : phone
+        ? Math.floor(1000 + Math.random() * 9000).toString()
+        : Math.floor(10000 + Math.random() * 90000).toString();
+    const otpExpiresAt = new Date(Date.now() + 600000).toISOString();
+
+    await queryOne(
+      `
+        UPDATE users
+        SET otp_code = $2, otp_expires_at = $3, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING id
+      `,
+      [user.id, otpCode, otpExpiresAt],
+    );
+
+    console.log(`[SMTP/SMS MOCK GATEWAY] OTP for ${phone || email}: ${otpCode}`);
+
+    return res.json({
+      success: true,
+      message: `OTP sent successfully to your registered ${phone ? "phone" : "email"}.`,
+    });
+  } catch (err) {
+    console.error("[Auth] OTP request failed:", err);
+    return res.status(500).json({ success: false, message: "Failed to request OTP." });
+  }
+}
+
+async function handleOtpVerify(req, res) {
+  try {
+    const { email, phone, otp } = req.body;
+    if ((!email && !phone) || !otp) {
+      return res.status(400).json({ success: false, message: "Email/Phone and OTP are required." });
+    }
+
+    const user = phone === SCORER_PHONE
+      ? await ensureScorerUser()
+      : await findUser({ email, phone });
+
+    const isOtpValid = user && user.otp_code === otp;
+
+    if (!user || !isOtpValid) {
+      return res.status(401).json({ success: false, message: "Invalid OTP or user credentials." });
+    }
+
+    await queryOne(
+      `
+        UPDATE users
+        SET otp_code = NULL, otp_expires_at = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING id
+      `,
+      [user.id],
+    );
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, phone: user.phone, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    return res.json({
+      success: true,
+      message: "Login successful.",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        name: user.name,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("[Auth] OTP verification failed:", err);
+    return res.status(500).json({ success: false, message: "Failed to verify OTP." });
+  }
+}
+
 router.post("/otp/request", handleOtpRequest);
 router.post("/request-otp", handleOtpRequest);
 
 router.post("/otp/verify", handleOtpVerify);
 router.post("/verify-otp", handleOtpVerify);
 
-// Regular Username/Password Login (for Admin Panel convenience)
-router.post("/login", (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: "Email and password are required." });
-  }
+router.post("/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password are required." });
+    }
 
-  const user = db.users.find(u => u.email === email);
-  if (!user) {
-    return res.status(401).json({ success: false, message: "Invalid credentials." });
-  }
-
-  // If seeded password, check hash. Otherwise allow convenient bypass for seeded demo.
-  if (user.passwordHash) {
-    const isMatch = bcryptjs.compareSync(password, user.passwordHash);
-    if (!isMatch) {
+    const user = await queryOne("SELECT * FROM users WHERE email = $1 LIMIT 1", [email]);
+    if (!user) {
       return res.status(401).json({ success: false, message: "Invalid credentials." });
     }
-  }
 
-  const token = jwt.sign(
-    { userId: user.id, email: user.email, role: user.role },
-    JWT_SECRET,
-    { expiresIn: "7d" }
-  );
-
-  return res.json({
-    success: true,
-    token,
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role
+    if (user.password_hash) {
+      const isMatch = bcryptjs.compareSync(password, user.password_hash);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, message: "Invalid credentials." });
+      }
     }
-  });
+
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    return res.json({
+      success: true,
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.error("[Auth] Login failed:", err);
+    return res.status(500).json({ success: false, message: "Login failed." });
+  }
 });
 
-// Middleware helper to authenticate JWT
 export function authenticateToken(req, res, next) {
-  const authHeader = req.headers["authorization"];
+  const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(" ")[1];
 
-  if (!token) return res.status(401).json({ success: false, message: "Access denied. Token missing." });
+  if (!token) {
+    return res.status(401).json({ success: false, message: "Access denied. Token missing." });
+  }
 
   jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) return res.status(403).json({ success: false, message: "Invalid or expired token." });
+    if (err) {
+      return res.status(403).json({ success: false, message: "Invalid or expired token." });
+    }
     req.user = decoded;
     next();
   });
+}
+
+export function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user?.role || !roles.includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: "You do not have permission to perform this action." });
+    }
+    next();
+  };
 }
 
 export default router;

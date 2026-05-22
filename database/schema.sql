@@ -65,6 +65,7 @@ CREATE TABLE players (
     bowling_style VARCHAR(50), -- e.g., "Right-arm medium fast"
     is_captain BOOLEAN DEFAULT FALSE NOT NULL,
     is_vice_captain BOOLEAN DEFAULT FALSE NOT NULL,
+    is_wicket_keeper BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
@@ -94,6 +95,8 @@ CREATE TABLE match_state (
     bowler_id INT REFERENCES players(id) ON DELETE SET NULL,
     team1_score JSONB DEFAULT '{"runs": 0, "wickets": 0, "overs": 0.0, "extras": 0}'::jsonb NOT NULL,
     team2_score JSONB DEFAULT '{"runs": 0, "wickets": 0, "overs": 0.0, "extras": 0}'::jsonb NOT NULL,
+    live_data JSONB DEFAULT '{}'::jsonb NOT NULL,
+    revision INT DEFAULT 0 NOT NULL,
     status match_status DEFAULT 'scheduled' NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
@@ -113,6 +116,9 @@ CREATE TABLE ball_commentary (
     wicket_type wicket_type,
     dismissed_player_id INT REFERENCES players(id) ON DELETE SET NULL,
     description VARCHAR(512),
+    event_data JSONB DEFAULT '{}'::jsonb NOT NULL,
+    state_before JSONB,
+    state_after JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
