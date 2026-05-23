@@ -470,7 +470,8 @@ function runsBreakdown(event) {
   }
 
   if (extraType === "wide") {
-    const totalExtras = extraRunsInput > 0 ? extraRunsInput : 1;
+    // Extra runs field = total runs on the wide (e.g. 4 → 4wd), not 1 + extras.
+    const totalExtras = extraRunsInput > 0 ? extraRunsInput : runs > 0 ? runs : 1;
     return {
       batterRuns: 0,
       teamRuns: totalExtras,
@@ -1077,7 +1078,10 @@ export function applyScoreEvent(liveData, event) {
 
   let endStrikerId = strikerId;
   let endNonStrikerId = nonStrikerId;
-  if (scoring.teamRuns % 2 === 1) {
+  // Wides are illegal deliveries — striker keeps strike (no swap from wide runs).
+  const rotateStrike =
+    event.extraType !== "wide" && scoring.teamRuns % 2 === 1;
+  if (rotateStrike) {
     endStrikerId = nonStrikerId;
     endNonStrikerId = strikerId;
   }
