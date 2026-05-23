@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Calendar, MapPin, ShieldCheck, Trophy, Users } from "lucide-react";
+import { Calendar, Crown, MapPin, ShieldCheck, Trophy, Users, X } from "lucide-react";
 import { fetchApi } from "../../../lib/api";
+import PastMatchList from "../../../components/PastMatchList";
 
 export default function TournamentDetails({ params }) {
   const [activeTab, setActiveTab] = useState("overview");
@@ -13,6 +14,10 @@ export default function TournamentDetails({ params }) {
   const [standings, setStandings] = useState({ pointsTable: [], orangeCap: [], purpleCap: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedTeamId, setSelectedTeamId] = useState(null);
+  const [teamDetail, setTeamDetail] = useState(null);
+  const [teamDetailLoading, setTeamDetailLoading] = useState(false);
+  const [teamDetailError, setTeamDetailError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -56,7 +61,42 @@ export default function TournamentDetails({ params }) {
     };
   }, [params.id]);
 
+  useEffect(() => {
+    if (!selectedTeamId || !params.id) {
+      setTeamDetail(null);
+      return;
+    }
+
+    let active = true;
+    setTeamDetailLoading(true);
+    setTeamDetailError("");
+
+    fetchApi(`/tournaments/${params.id}/teams/${selectedTeamId}`)
+      .then((res) => {
+        if (!active) return;
+        setTeamDetail(res.data);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setTeamDetailError(err.message || "Failed to load team.");
+        setTeamDetail(null);
+      })
+      .finally(() => {
+        if (active) setTeamDetailLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedTeamId, params.id]);
+
   const liveFixture = fixtures.find((fixture) => fixture.status === "live");
+
+  function closeTeamDetail() {
+    setSelectedTeamId(null);
+    setTeamDetail(null);
+    setTeamDetailError("");
+  }
 
   if (loading) {
     return <div className="bg-card border border-border rounded-2xl p-6 text-sm text-subtext">Loading tournament details...</div>;
@@ -110,7 +150,8 @@ export default function TournamentDetails({ params }) {
         {[
           { id: "overview", label: "Overview & Rules" },
           { id: "teams", label: "Teams & Standings" },
-          { id: "matches", label: "Schedule & Scores" },
+          { id: "schedule", label: "Schedule & Scores" },
+          { id: "played", label: "Matches" },
           { id: "stats", label: "Cap Leaderboards" },
         ].map((tab) => (
           <button
@@ -204,27 +245,82 @@ export default function TournamentDetails({ params }) {
 
             <div className="bg-card border border-border p-6 rounded-2xl space-y-4">
               <h3 className="text-lg font-bold font-display">Registered Teams</h3>
+              <p className="text-[10px] text-subtext">Tap a team to view squad and roles.</p>
 
               {teams.length === 0 ? (
                 <p className="text-xs text-subtext">No teams have been registered yet.</p>
               ) : (
-                <div className="space-y-3">
-                  {teams.map((team) => (
-                    <div key={team.id} className="bg-background p-3 rounded-lg border border-border flex justify-between items-center text-xs">
-                      <div>
-                        <p className="font-bold text-text">{team.name}</p>
-                        <span className="text-[10px] text-subtext">{team.company_name}</span>
-                      </div>
-                      <span className="text-[10px] text-subtext">{team.jersey_color || "Not set"}</span>
-                    </div>
-                  ))}
+                <div className="space-y-2">
+                  {teams.map((team) => {
+                    const isSelected = selectedTeamId === team.id;
+                    return (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() => setSelectedTeamId(team.id)}
+                        className={`w-full text-left bg-background p-3 rounded-lg border transition-all text-xs ${
+                          isSelected
+                            ? "border-accent ring-1 ring-accent/40"
+                            : "border-border hover:border-accent/40"
+                        }`}
+                      >
+                        <div className="flex justify-between items-center gap-2">
+                          <div>
+                            <p className="font-bold text-text">{team.name}</p>
+                            <span className="text-[10px] text-subtext">{team.company_name}</span>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-[10px] text-accent font-bold block">
+                              {team.player_count ?? 0} players
+                            </span>
+                            <span className="text-[10px] text-subtext">{team.jersey_color || "—"}</span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {selectedTeamId && (
+                <div className="mt-4 border-t border-border pt-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="text-sm font-extrabold text-accent uppercase tracking-wider">
+                      Team Details
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={closeTeamDetail}
+                      className="p-1 rounded border border-border text-subtext hover:text-text"
+                      aria-label="Close team details"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {teamDetailLoading && (
+                    <p className="text-xs text-subtext">Loading squad…</p>
+                  )}
+                  {teamDetailError && (
+                    <p className="text-xs text-red-400">{teamDetailError}</p>
+                  )}
+                  {teamDetail && !teamDetailLoading && (
+                    <TeamDetailPanel team={teamDetail} />
+                  )}
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {activeTab === "matches" && (
+        {activeTab === "played" && (
+          <PastMatchList
+            tournamentId={Number(params.id)}
+            title="Tournament matches"
+          />
+        )}
+
+        {activeTab === "schedule" && (
           <div className="space-y-6">
             {liveFixture && (
               <div className="bg-card border border-accent/30 rounded-2xl p-6 relative overflow-hidden">
@@ -260,7 +356,9 @@ export default function TournamentDetails({ params }) {
                       <div>
                         <span className="text-[10px] text-accent uppercase font-bold tracking-wider">{fixture.status}</span>
                         <p className="font-extrabold text-sm text-text pt-0.5">
-                          Fixture #{fixture.id}
+                          {fixture.team1_name && fixture.team2_name
+                            ? `${fixture.team1_name} vs ${fixture.team2_name}`
+                            : `Fixture #${fixture.id}`}
                         </p>
                         <span className="text-[10px] text-subtext">{fixture.match_date} • {fixture.ground}</span>
                       </div>
@@ -288,8 +386,9 @@ export default function TournamentDetails({ params }) {
                       <p className="font-bold text-text">{stat.name}</p>
                       <span className="text-[10px] text-subtext">{stat.team}</span>
                     </div>
-                    <div className="text-right">
-                      <span className="font-bold text-orange-500 text-sm">{stat.runs} Runs</span>
+                    <div className="text-right text-[10px] text-subtext">
+                      <span className="font-bold text-orange-500 text-sm block">{stat.runs} runs</span>
+                      <span>{stat.balls} balls · SR {stat.strikeRate}</span>
                     </div>
                   </div>
                 ))
@@ -307,13 +406,130 @@ export default function TournamentDetails({ params }) {
                       <p className="font-bold text-text">{stat.name}</p>
                       <span className="text-[10px] text-subtext">{stat.team}</span>
                     </div>
-                    <div className="text-right">
-                      <span className="font-bold text-purple-500 text-sm">{stat.wickets} Wickets</span>
+                    <div className="text-right text-[10px] text-subtext">
+                      <span className="font-bold text-purple-500 text-sm block">{stat.wickets} wkts</span>
+                      <span>Econ {stat.economy}</span>
                     </div>
                   </div>
                 ))
               )}
             </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TeamDetailPanel({ team }) {
+  const players = team.players || [];
+
+  return (
+    <div className="space-y-4 text-xs">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-background/60 border border-border rounded-lg p-2">
+          <span className="text-[9px] uppercase text-subtext block">Company</span>
+          <span className="font-bold text-text">{team.company_name}</span>
+        </div>
+        <div className="bg-background/60 border border-border rounded-lg p-2">
+          <span className="text-[9px] uppercase text-subtext block">Jersey</span>
+          <span className="font-bold text-text">{team.jersey_color || "Not set"}</span>
+        </div>
+        <div className="bg-background/60 border border-border rounded-lg p-2">
+          <span className="text-[9px] uppercase text-subtext block">Status</span>
+          <span className="font-bold text-text capitalize">{team.status}</span>
+        </div>
+        <div className="bg-background/60 border border-border rounded-lg p-2">
+          <span className="text-[9px] uppercase text-subtext block">Squad size</span>
+          <span className="font-bold text-text">{players.length}</span>
+        </div>
+      </div>
+
+      <div>
+        <h5 className="text-[10px] font-extrabold uppercase tracking-widest text-subtext mb-1">
+          Squad & tournament stats
+        </h5>
+        <p className="text-[9px] text-subtext mb-2">
+          Batting and bowling figures from matches in this tournament (same data as Orange / Purple Cap).
+        </p>
+        {players.length === 0 ? (
+          <p className="text-subtext">No players registered for this team yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-border">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-background/80 text-[9px] uppercase text-subtext font-extrabold tracking-wider border-b border-border">
+                  <th className="py-2 px-2 w-8">#</th>
+                  <th className="py-2 px-2">Name</th>
+                  <th className="py-2 px-2">Role</th>
+                  <th className="py-2 px-2 text-right text-orange-500">Runs</th>
+                  <th className="py-2 px-2 text-center text-orange-500">Balls</th>
+                  <th className="py-2 px-2 text-right text-orange-500">SR</th>
+                  <th className="py-2 px-2 text-center text-purple-500">Wkts</th>
+                  <th className="py-2 px-2 text-center text-purple-500">Overs</th>
+                  <th className="py-2 px-2 text-right text-purple-500">Econ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/50">
+                {players.map((player) => {
+                  const bat = player.battingStats || {};
+                  const bowl = player.bowlingStats || {};
+                  const hasBat = (bat.runs || 0) > 0 || (bat.balls || 0) > 0;
+                  const hasBowl = (bowl.wickets || 0) > 0 || (bowl.legalBalls || 0) > 0;
+
+                  return (
+                  <tr key={player.id} className="bg-background/30">
+                    <td className="py-2 px-2 font-bold text-subtext">
+                      {player.jersey_number ?? "—"}
+                    </td>
+                    <td className="py-2 px-2 font-bold text-text">{player.name}</td>
+                    <td className="py-2 px-2">
+                      <div className="flex flex-wrap gap-1">
+                        {player.is_captain && (
+                          <span className="inline-flex items-center gap-0.5 bg-accent/20 text-accent text-[9px] font-black uppercase px-1.5 py-0.5 rounded">
+                            <Crown className="w-3 h-3" />
+                            C
+                          </span>
+                        )}
+                        {player.is_vice_captain && (
+                          <span className="bg-background border border-border text-[9px] font-bold uppercase px-1.5 py-0.5 rounded text-subtext">
+                            VC
+                          </span>
+                        )}
+                        {player.is_wicket_keeper && (
+                          <span className="inline-flex items-center gap-0.5 bg-blue-500/15 text-blue-400 text-[9px] font-black uppercase px-1.5 py-0.5 rounded">
+                            <ShieldCheck className="w-3 h-3" />
+                            WK
+                          </span>
+                        )}
+                        {!player.is_captain && !player.is_vice_captain && !player.is_wicket_keeper && (
+                          <span className="text-[9px] text-subtext">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className={`py-2 px-2 text-right font-bold ${hasBat ? "text-orange-500" : "text-subtext"}`}>
+                      {hasBat ? bat.runs : "—"}
+                    </td>
+                    <td className={`py-2 px-2 text-center ${hasBat ? "text-text" : "text-subtext"}`}>
+                      {hasBat ? bat.balls : "—"}
+                    </td>
+                    <td className={`py-2 px-2 text-right ${hasBat ? "text-text" : "text-subtext"}`}>
+                      {hasBat ? bat.strikeRate.toFixed(2) : "—"}
+                    </td>
+                    <td className={`py-2 px-2 text-center font-bold ${hasBowl ? "text-purple-500" : "text-subtext"}`}>
+                      {hasBowl ? bowl.wickets : "—"}
+                    </td>
+                    <td className={`py-2 px-2 text-center ${hasBowl ? "text-text" : "text-subtext"}`}>
+                      {hasBowl ? bowl.overs : "—"}
+                    </td>
+                    <td className={`py-2 px-2 text-right ${hasBowl ? "text-text" : "text-subtext"}`}>
+                      {hasBowl ? bowl.economy.toFixed(2) : "—"}
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

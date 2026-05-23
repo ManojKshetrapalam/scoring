@@ -1,20 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Sun, Moon, Sparkles, PhoneCall, Award, Play } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Sun, Moon, Sparkles, PhoneCall, LogOut } from "lucide-react";
 import Logo from "../components/Logo";
 import "./globals.css";
 
 export default function RootLayout({ children }) {
   const [theme, setTheme] = useState("dark");
+  const [scorerLoggedIn, setScorerLoggedIn] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const refreshScorerAuth = useCallback(() => {
+    setScorerLoggedIn(Boolean(window.localStorage.getItem("scorer-token")));
+  }, []);
 
   useEffect(() => {
-    // Initialise theme
     const savedTheme = localStorage.getItem("gevents-theme") || "dark";
     setTheme(savedTheme);
     document.documentElement.setAttribute("data-theme", savedTheme);
   }, []);
+
+  useEffect(() => {
+    refreshScorerAuth();
+    window.addEventListener("storage", refreshScorerAuth);
+    window.addEventListener("scorer-auth-changed", refreshScorerAuth);
+    return () => {
+      window.removeEventListener("storage", refreshScorerAuth);
+      window.removeEventListener("scorer-auth-changed", refreshScorerAuth);
+    };
+  }, [pathname, refreshScorerAuth]);
+
+  function handleScorerLogout() {
+    window.localStorage.removeItem("scorer-token");
+    window.localStorage.removeItem("scorer-user");
+    window.dispatchEvent(new Event("scorer-auth-changed"));
+    setScorerLoggedIn(false);
+    router.push("/scorer");
+  }
 
   const toggleTheme = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
@@ -22,6 +47,10 @@ export default function RootLayout({ children }) {
     localStorage.setItem("gevents-theme", nextTheme);
     document.documentElement.setAttribute("data-theme", nextTheme);
   };
+
+  const homeHref = scorerLoggedIn ? "/scorer" : "/";
+  const homeLabel = scorerLoggedIn ? "Scorer Dashboard" : "Gevents Cricket Home";
+  const tournamentsHref = scorerLoggedIn ? "/scorer#tournaments" : "/tournaments";
 
   return (
     <html lang="en">
@@ -39,29 +68,29 @@ export default function RootLayout({ children }) {
               
               {/* BRAND LOGO */}
               <div className="flex items-center">
-                <Link href="/" className="flex items-center focus-visible:outline" aria-label="Gevents Cricket Home">
+                <Link href={homeHref} className="flex items-center focus-visible:outline" aria-label={homeLabel}>
                   <Logo className="h-8 w-auto text-text hover:text-accent transition-colors" />
                 </Link>
               </div>
 
               {/* NAVIGATION MENU */}
               <nav className="hidden md:flex space-x-8 items-center" aria-label="Primary Navigation">
-                <Link href="/" className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline">
+                <Link href={homeHref} className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline">
                   Home
                 </Link>
-                <Link href="/tournaments" className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline">
+                <Link href={tournamentsHref} className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline">
                   Tournaments
                 </Link>
-                <Link href="/register" className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline">
-                  Register Team
+                {/* <Link href="/teams" className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline">
+                  Teams
+                </Link> */}
+                <Link href="/past-matches" className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline">
+                  Past Matches
                 </Link>
-                <Link href="/scorer" className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline flex items-center gap-1">
+                {/* <Link href="/scorer" className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline flex items-center gap-1">
                   <Sparkles className="w-4 h-4 text-accent" />
                   Scorer Panel
-                </Link>
-                <Link href="/admin" className="text-text hover:text-accent font-medium text-sm transition-colors focus-visible:outline">
-                  Admin Console
-                </Link>
+                </Link> */}
               </nav>
 
               {/* PHONE AND THEME ACTIONS */}
@@ -87,12 +116,24 @@ export default function RootLayout({ children }) {
                   )}
                 </button>
 
-                <Link 
-                  href="/register" 
-                  className="bg-accent hover:bg-accent-hover text-black font-bold text-xs sm:text-sm px-4 py-2 rounded-lg transition-all transform hover:translate-y-[-1px] focus-visible:outline"
-                >
-                  Join Tournament
-                </Link>
+                {scorerLoggedIn ? (
+                  <button
+                    type="button"
+                    onClick={handleScorerLogout}
+                    className="bg-card hover:bg-background border border-border text-text font-bold text-xs sm:text-sm px-4 py-2 rounded-lg transition-all flex items-center gap-2 focus-visible:outline"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Logout
+                  </button>
+                ) : (
+                  <Link
+                    href="/scorer"
+                    className="bg-accent hover:bg-accent-hover text-black font-bold text-xs sm:text-sm px-4 py-2 rounded-lg transition-all transform hover:translate-y-[-1px] focus-visible:outline flex items-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Scorer Panel
+                  </Link>
+                )}
               </div>
 
             </div>
@@ -144,18 +185,18 @@ export default function RootLayout({ children }) {
                     </Link>
                   </li>
                   <li>
-                    <Link href="/register" className="text-subtext hover:text-accent transition-colors">
-                      Corporate Registrations
+                    <Link href="/teams" className="text-subtext hover:text-accent transition-colors">
+                      Teams Directory
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/past-matches" className="text-subtext hover:text-accent transition-colors">
+                      Past Matches
                     </Link>
                   </li>
                   <li>
                     <Link href="/scorer" className="text-subtext hover:text-accent transition-colors">
                       Scorer Console
-                    </Link>
-                  </li>
-                  <li>
-                    <Link href="/admin" className="text-subtext hover:text-accent transition-colors">
-                      Super Admin Panel
                     </Link>
                   </li>
                 </ul>

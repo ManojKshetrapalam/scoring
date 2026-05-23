@@ -11,8 +11,11 @@ import {
   Radio,
 } from "lucide-react";
 import { fetchApi, socketPath, socketUrl } from "../../../lib/api";
+import ManOfTheMatchPanel from "../../../components/ManOfTheMatchPanel";
 import {
   ballCircleClass,
+  formatMatchResultSummary,
+  normalizeBallDelivery,
   batterStatusLabel,
   resolveBowlerDeliveries,
   formatDismissal,
@@ -22,6 +25,8 @@ import {
   phaseLabel,
   runRate,
   teamNameForId,
+  teamNameForInnings,
+  teamNameForBowlingInnings,
 } from "../../../lib/scorecard";
 
 function BallCircles({ deliveries = [], title = "This over" }) {
@@ -35,15 +40,18 @@ function BallCircles({ deliveries = [], title = "This over" }) {
     <div className="px-4 pb-4 pt-1">
       <p className="text-[10px] font-extrabold uppercase tracking-widest text-subtext mb-2">{title}</p>
       <div className="flex flex-wrap gap-2">
-        {deliveries.map((ball, index) => (
-          <span
-            key={`${ball.label}-${index}`}
-            className={`inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-full border text-xs font-black ${ballCircleClass(ball.variant)}`}
-            title={ball.variant}
-          >
-            {ball.label}
-          </span>
-        ))}
+        {deliveries.map((ball, index) => {
+          const normalized = normalizeBallDelivery(ball);
+          return (
+            <span
+              key={`${normalized.label}-${index}`}
+              className={`inline-flex items-center justify-center min-w-[2rem] h-8 px-2 rounded-full border text-xs font-black ${ballCircleClass(normalized.variant)}`}
+              title={normalized.variant}
+            >
+              {normalized.label}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
@@ -175,22 +183,23 @@ function BowlersTable({ rows, currentBowlerId, highlightLive }) {
   );
 }
 
-function InningsBlock({ match, inningsNumber, isLiveInnings }) {
+function InningsBlock({ match, inningsNumber, isLiveInnings, embedded = false }) {
   const innings = match[`innings${inningsNumber}`];
   if (!innings) return null;
 
-  const teamName = teamNameForId(match, innings.battingTeamId);
-  const bowlingTeam = teamNameForId(match, innings.bowlingTeamId);
+  const teamName = teamNameForInnings(match, innings);
+  const bowlingTeam = teamNameForBowlingInnings(match, innings);
   const crr = runRate(innings.runs, innings.legalBalls);
 
   return (
-    <section className="bg-card border border-border rounded-xl overflow-hidden">
+    <section
+      className={`bg-card border border-border overflow-hidden ${
+        embedded ? "rounded-b-xl border-t-0" : "rounded-xl"
+      }`}
+    >
       <div className="bg-background/60 border-b border-border px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div>
-          <h3 className="text-sm font-extrabold font-display uppercase tracking-wide text-accent">
-            Innings {inningsNumber}
-          </h3>
-          <p className="text-base font-black text-text mt-0.5">
+          <p className="text-base font-black text-text">
             {teamName}{" "}
             <span className="text-subtext font-bold text-sm">
               {innings.runs}/{innings.wickets} ({innings.overs} Ov)
@@ -261,8 +270,10 @@ export default function LiveScorecardPage() {
   const [match, setMatch] = useState(null);
   const [commentary, setCommentary] = useState([]);
   const [activeTab, setActiveTab] = useState("scorecard");
+  const [inningsTab, setInningsTab] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const prevInningsNumRef = useRef(1);
 
   useEffect(() => {
     if (!fixtureId) return undefined;
@@ -277,8 +288,12 @@ export default function LiveScorecardPage() {
           fetchApi(`/matches/${fixtureId}/commentary`),
         ]);
         if (!active) return;
-        setMatch(matchRes.data);
+        const loaded = matchRes.data;
+        setMatch(loaded);
         setCommentary(commentaryRes.data || []);
+        const initialInnings = loaded?.liveData?.current?.inningsNumber || loaded?.current_innings || 1;
+        setInningsTab(loaded?.[`innings${initialInnings}`] ? initialInnings : loaded?.innings1 ? 1 : 2);
+        prevInningsNumRef.current = initialInnings;
       } catch (err) {
         if (active) setError(err.message || "Failed to load scorecard.");
       } finally {
@@ -334,6 +349,17 @@ export default function LiveScorecardPage() {
   );
   const isLive = livePhase === "live" || livePhase === "innings_break" || pendingTransition;
   const currentInningsNum = match?.liveData?.current?.inningsNumber || match?.current_innings || 1;
+  const hasInnings1 = Boolean(match?.innings1);
+  const hasInnings2 = Boolean(match?.innings2);
+
+  useEffect(() => {
+    if (!match) return;
+    const n = match.liveData?.current?.inningsNumber || match.current_innings || 1;
+    if (prevInningsNumRef.current === 1 && n === 2 && match.innings2) {
+      setInningsTab(2);
+    }
+    prevInningsNumRef.current = n;
+  }, [match, currentInningsNum, hasInnings2]);
 
   const inningsSummaries = useMemo(() => {
     if (!match) return [];
@@ -342,7 +368,7 @@ export default function LiveScorecardPage() {
       items.push({
         number: 1,
         innings: match.innings1,
-        teamName: teamNameForId(match, match.innings1.battingTeamId),
+        teamName: teamNameForInnings(match, match.innings1),
         isCurrent: isLive && currentInningsNum === 1,
       });
     }
@@ -350,7 +376,7 @@ export default function LiveScorecardPage() {
       items.push({
         number: 2,
         innings: match.innings2,
-        teamName: teamNameForId(match, match.innings2.battingTeamId),
+        teamName: teamNameForInnings(match, match.innings2),
         isCurrent: isLive && currentInningsNum === 2,
       });
     }
@@ -383,6 +409,9 @@ export default function LiveScorecardPage() {
   const partnershipText = partnership?.batterAId
     ? `Partnership ${partnership.runs} (${partnership.balls} balls)`
     : null;
+  const resultSummary = formatMatchResultSummary(match);
+  const isComplete =
+    livePhase === "completed" || match?.status === "completed";
 
   return (
     <div className="max-w-3xl mx-auto space-y-4 pb-12">
@@ -420,8 +449,8 @@ export default function LiveScorecardPage() {
             <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded bg-background border border-border text-accent">
               {phaseLabel(livePhase, pendingTransition)}
             </span>
-            {match.result?.summary && (
-              <span className="text-xs font-bold text-accent">{match.result.summary}</span>
+            {resultSummary && (
+              <span className="text-xs font-bold text-accent">{resultSummary}</span>
             )}
           </div>
 
@@ -448,6 +477,8 @@ export default function LiveScorecardPage() {
           )}
         </div>
       </header>
+
+      {isComplete && <ManOfTheMatchPanel match={match} />}
 
       {pendingTransition && (
         <section className="bg-card border border-accent/30 rounded-xl px-4 py-4 text-sm text-center">
@@ -533,18 +564,68 @@ export default function LiveScorecardPage() {
       </div>
 
       {activeTab === "scorecard" && (
-        <div className="space-y-4">
-          <InningsBlock
-            match={match}
-            inningsNumber={1}
-            isLiveInnings={livePhase === "live" && currentInningsNum === 1}
-          />
-          <InningsBlock
-            match={match}
-            inningsNumber={2}
-            isLiveInnings={livePhase === "live" && currentInningsNum === 2}
-          />
-          {!match.innings1 && !match.innings2 && (
+        <div className="space-y-0">
+          <div className="flex border-b border-border bg-card rounded-t-xl overflow-hidden">
+            {[
+              { id: 1, label: "1st" },
+              { id: 2, label: "2nd" },
+            ].map((tab) => {
+              const hasData = tab.id === 1 ? hasInnings1 : hasInnings2;
+              const isActive = inningsTab === tab.id;
+              const isLiveInnings = livePhase === "live" && currentInningsNum === tab.id;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setInningsTab(tab.id)}
+                  disabled={!hasData && tab.id === 2}
+                  className={`flex-1 py-3 text-sm font-extrabold uppercase tracking-wider border-b-2 transition-colors relative ${
+                    isActive
+                      ? "border-accent text-accent bg-accent/10"
+                      : "border-transparent text-subtext hover:text-text hover:bg-background/50"
+                  } ${!hasData && tab.id === 2 ? "opacity-40 cursor-not-allowed" : ""}`}
+                >
+                  {tab.label}
+                  {isLiveInnings && (
+                    <span className="absolute top-2 right-3 w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {inningsTab === 1 && hasInnings1 && (
+            <InningsBlock
+              match={match}
+              inningsNumber={1}
+              isLiveInnings={livePhase === "live" && currentInningsNum === 1}
+              embedded
+            />
+          )}
+
+          {inningsTab === 2 && hasInnings2 && (
+            <InningsBlock
+              match={match}
+              inningsNumber={2}
+              isLiveInnings={livePhase === "live" && currentInningsNum === 2}
+              embedded
+            />
+          )}
+
+          {inningsTab === 1 && !hasInnings1 && (
+            <div className="bg-card border border-border border-t-0 rounded-b-xl p-6 text-sm text-subtext text-center">
+              1st innings scorecard will appear once the match begins.
+            </div>
+          )}
+
+          {inningsTab === 2 && !hasInnings2 && (
+            <div className="bg-card border border-border border-t-0 rounded-b-xl p-6 text-sm text-subtext text-center">
+              2nd innings has not started yet.
+            </div>
+          )}
+
+          {!hasInnings1 && !hasInnings2 && (
             <div className="bg-card border border-border rounded-xl p-6 text-sm text-subtext text-center">
               Full scorecard will appear once the innings begins.
             </div>

@@ -1,6 +1,15 @@
 export function teamNameForId(match, teamId) {
+  if (teamId == null || teamId === "") return "Team";
+
+  if (match?.team1Id != null && Number(match.team1Id) === Number(teamId)) {
+    return match.team1Name || "Team 1";
+  }
+  if (match?.team2Id != null && Number(match.team2Id) === Number(teamId)) {
+    return match.team2Name || "Team 2";
+  }
+
   const lineups = match?.liveData?.lineups;
-  if (!lineups || teamId == null) return "Team";
+  if (!lineups) return "Team";
 
   if (Number(lineups.team1?.teamId) === Number(teamId)) {
     return match.team1Name || "Team 1";
@@ -9,6 +18,83 @@ export function teamNameForId(match, teamId) {
     return match.team2Name || "Team 2";
   }
   return `Team ${teamId}`;
+}
+
+export function teamIdForPlayer(match, playerId) {
+  const lineups = match?.liveData?.lineups;
+  if (!lineups || playerId == null) return null;
+
+  const id = Number(playerId);
+  if (lineups.team1?.playingXI?.some((player) => Number(player) === id)) {
+    return lineups.team1.teamId;
+  }
+  if (lineups.team2?.playingXI?.some((player) => Number(player) === id)) {
+    return lineups.team2.teamId;
+  }
+  return null;
+}
+
+function lineupHasTeamId(match, teamId) {
+  const lineups = match?.liveData?.lineups;
+  if (!lineups || teamId == null) return false;
+  return (
+    Number(lineups.team1?.teamId) === Number(teamId) ||
+    Number(lineups.team2?.teamId) === Number(teamId)
+  );
+}
+
+/** Resolve batting team label from innings metadata, with lineup fallback. */
+export function teamNameForInnings(match, innings) {
+  if (!innings) return "Team";
+
+  if (lineupHasTeamId(match, innings.battingTeamId)) {
+    return teamNameForId(match, innings.battingTeamId);
+  }
+
+  const batsmen = Array.isArray(innings.batsmen) ? innings.batsmen : Object.values(innings.batsmen || {});
+  const sample = batsmen.find(
+    (batter) =>
+      batter?.playerId &&
+      (batter.status === "batting" ||
+        batter.status === "out" ||
+        batter.balls > 0 ||
+        batter.runs > 0),
+  );
+  if (sample?.playerId) {
+    const inferredId = teamIdForPlayer(match, sample.playerId);
+    if (inferredId != null) return teamNameForId(match, inferredId);
+  }
+
+  return teamNameForId(match, innings.battingTeamId);
+}
+
+export function teamNameForBowlingInnings(match, innings) {
+  if (!innings) return "Team";
+
+  if (lineupHasTeamId(match, innings.bowlingTeamId)) {
+    return teamNameForId(match, innings.bowlingTeamId);
+  }
+
+  const bowlers = Array.isArray(innings.bowlers) ? innings.bowlers : Object.values(innings.bowlers || {});
+  const sample = bowlers.find((bowler) => bowler?.playerId && bowler.legalBalls > 0);
+  if (sample?.playerId) {
+    const inferredId = teamIdForPlayer(match, sample.playerId);
+    if (inferredId != null) return teamNameForId(match, inferredId);
+  }
+
+  const battingId = teamIdForPlayer(
+    match,
+    (Array.isArray(innings.batsmen) ? innings.batsmen : Object.values(innings.batsmen || {}))[0]?.playerId,
+  );
+  if (battingId != null) {
+    const lineups = match?.liveData?.lineups;
+    const team1Id = Number(lineups?.team1?.teamId);
+    const team2Id = Number(lineups?.team2?.teamId);
+    const otherId = Number(battingId) === team1Id ? team2Id : team1Id;
+    return teamNameForId(match, otherId);
+  }
+
+  return teamNameForId(match, innings.bowlingTeamId);
 }
 
 export function formatStrikeRate(value) {
@@ -127,13 +213,45 @@ export function phaseLabel(phase, pendingTransition = null) {
   return labels[phase] || phase || "Match";
 }
 
+/** Ensure ball-by-ball chips have variant for color coding (4=yellow, 6=green, W=red). */
+export function normalizeBallDelivery(ball) {
+  if (!ball) return { label: "", variant: "runs" };
+
+  const label = String(ball.label ?? "").trim();
+  const upper = label.toUpperCase();
+
+  if (upper === "W" || upper === "WK" || upper.startsWith("WKT")) {
+    return { ...ball, label, variant: "wicket" };
+  }
+  if (upper.includes("NB")) {
+    return { ...ball, variant: "noball" };
+  }
+  if (upper.includes("WD")) {
+    return { ...ball, variant: "wide" };
+  }
+  if (label === "6" || upper === "6" || /^6\+?$/i.test(label)) {
+    return { ...ball, label, variant: "six" };
+  }
+  if (label === "4" || upper === "4" || /^4\+?$/i.test(label)) {
+    return { ...ball, label, variant: "four" };
+  }
+
+  if (ball.variant && ball.variant !== "runs") return ball;
+  if (label === "•" || label === "0") {
+    return { ...ball, variant: "dot" };
+  }
+
+  return { ...ball, variant: "runs" };
+}
+
 export function ballCircleClass(variant) {
   switch (variant) {
     case "four":
-      return "bg-yellow-400 text-black border-yellow-500 shadow-[0_0_12px_rgba(250,204,21,0.35)]";
+      return "bg-yellow-400 text-black border-yellow-500 shadow-[0_0_12px_rgba(250,204,21,0.45)]";
     case "six":
-      return "bg-emerald-500 text-white border-emerald-600 shadow-[0_0_12px_rgba(16,185,129,0.35)]";
+      return "bg-green-500 text-white border-green-600 shadow-[0_0_12px_rgba(34,197,94,0.4)]";
     case "wicket":
+      return "bg-red-500 text-white border-red-600 shadow-[0_0_12px_rgba(239,68,68,0.45)]";
     case "noball":
       return "bg-red-500 text-white border-red-600 shadow-[0_0_12px_rgba(239,68,68,0.35)]";
     case "wide":
@@ -151,6 +269,37 @@ export function bowlerOverDeliveries(bowlerCard, awaitingNextOver = false) {
   return bowlerCard.currentOverDeliveries || [];
 }
 
+export function formatMatchResultSummary(match) {
+  const result = match?.result;
+  if (!result?.summary) return result?.summary ?? null;
+
+  const winnerId = result.winnerTeamId;
+  if (winnerId == null) return result.summary;
+
+  const winnerName = teamNameForId(match, winnerId);
+  const idStr = String(winnerId);
+
+  if (result.summary.includes(idStr)) {
+    return result.summary.replace(idStr, winnerName);
+  }
+
+  const wicketsMatch = result.summary.match(/won by (\d+) wicket/i);
+  if (wicketsMatch) {
+    const n = Number(wicketsMatch[1]);
+    return `${winnerName} won by ${n} wicket${n === 1 ? "" : "s"}`;
+  }
+
+  const runsMatch = result.summary.match(/won by (\d+) run/i);
+  if (runsMatch) {
+    const n = Number(runsMatch[1]);
+    return `${winnerName} won by ${n} run${n === 1 ? "" : "s"}`;
+  }
+
+  if (/tied/i.test(result.summary)) return result.summary;
+
+  return `${winnerName} won`;
+}
+
 export function resolveBowlerDeliveries(match, awaitingNextOver = false) {
   const inningsNum = match?.liveData?.current?.inningsNumber || match?.current_innings || 1;
   const bowlerId = match?.liveData?.current?.bowlerId;
@@ -158,15 +307,22 @@ export function resolveBowlerDeliveries(match, awaitingNextOver = false) {
   const rawBowler = innings?.bowlers?.[String(bowlerId)];
 
   if (awaitingNextOver) {
-    if (rawBowler?.lastOverDeliveries?.length) return rawBowler.lastOverDeliveries;
+    if (rawBowler?.lastOverDeliveries?.length) {
+      return rawBowler.lastOverDeliveries.map(normalizeBallDelivery);
+    }
     const history = innings?.oversHistory || [];
     const lastOver = history[history.length - 1];
-    if (lastOver?.deliveries?.length) return lastOver.deliveries;
-    return bowlerOverDeliveries(match?.bowlerCard, true);
+    if (lastOver?.deliveries?.length) {
+      return lastOver.deliveries.map(normalizeBallDelivery);
+    }
+    return bowlerOverDeliveries(match?.bowlerCard, true).map(normalizeBallDelivery);
   }
 
-  if (rawBowler?.currentOverDeliveries?.length) return rawBowler.currentOverDeliveries;
-  return bowlerOverDeliveries(match?.bowlerCard, false);
+  if (rawBowler?.currentOverDeliveries?.length) {
+    return rawBowler.currentOverDeliveries.map(normalizeBallDelivery);
+  }
+  const fromCard = bowlerOverDeliveries(match?.bowlerCard, false);
+  return fromCard.map(normalizeBallDelivery);
 }
 
 export function inningsSummaryLine(innings, teamName, isCurrentInnings, match) {

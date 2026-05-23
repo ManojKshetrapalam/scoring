@@ -133,10 +133,10 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-wrap gap-4 pt-2">
-              <Link href="/register" className="bg-accent hover:bg-accent-hover text-black font-black px-6 py-3 rounded-lg text-sm sm:text-base flex items-center gap-2 transition-all">
+              {/* <Link href="/register" className="bg-accent hover:bg-accent-hover text-black font-black px-6 py-3 rounded-lg text-sm sm:text-base flex items-center gap-2 transition-all">
                 Register Corporate Team
                 <ArrowRight className="w-4 h-4" />
-              </Link>
+              </Link> */}
               <Link href="/tournaments" className="glass-panel border border-white/10 text-white font-bold px-6 py-3 rounded-lg text-sm sm:text-base flex items-center gap-2 transition-all">
                 Explore Tournaments
                 <ChevronRight className="w-4 h-4 text-accent" />
